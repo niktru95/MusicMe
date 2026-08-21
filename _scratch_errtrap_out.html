@@ -1,0 +1,35 @@
+﻿<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><title>err-trap</title></head>
+<body>
+  <script>
+  window.__errs = [];
+  window.onerror = function (m, s, l, c, e) {
+    window.__errs.push('ERR: ' + m + ' @ ' + s + ':' + l);
+    return false;
+  };
+  </script>
+  <script src="js/data/core.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/data/t01-notes.js"></script>
+  <script src="js/data/t02-intervals.js"></script>
+  <script src="js/data/t03-major.js"></script>
+  <script src="js/data/t04-minor.js"></script>
+  <script src="js/data/t05-triads.js"></script>
+  <script src="js/data/t06-sevenths.js"></script>
+  <script src="js/data/t07-chords.js"></script>
+  <script src="js/data/t08-pentatonic.js"></script>
+  <script src="js/data/t09-circle.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/runner.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    var d = document.getElementById('errdiag');
+    if (window.__errs && window.__errs.length) {
+      var t = document.createElement('div'); t.id = 'errd';
+      t.style.cssText = 'white-space:pre;font:11px monospace;';
+      t.textContent = window.__errs.join('\n');
+      document.body.appendChild(t);
+    }
+  </script><div id="errd" style="white-space: pre; font: 11px monospace;">ERR: Script error. @ :0</div>
+
+</body></html>

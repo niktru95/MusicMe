@@ -1,0 +1,536 @@
+﻿<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"></head><body>
+<script>window.__e=[];window.onerror=function(m,s,l,c,err){window.__e.push(String(m)+' | line '+l);return false;};</script>
+<script src="js/data/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data/t01-notes.js"></script>
+<script src="js/data/t02-intervals.js"></script>
+<script src="js/data/t03-major.js"></script>
+<script src="js/data/t04-minor.js"></script>
+<script src="js/data/t05-triads.js"></script>
+<script src="js/data/t06-sevenths.js"></script>
+<script src="js/data/t07-chords.js"></script>
+<script src="js/data/t08-pentatonic.js"></script>
+<script src="js/data/t09-circle.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/runner.js"></script>
+<script>/* app.js ╨▓╨ВтАЭ ╨а╤С╨а╨Е╨бтАЪ╨а┬╡╨б╨В╨бтАЮ╨а┬╡╨атДЦ╨б╨Г ╨бтАЪ╨б╨В╨а┬╡╨а╨Е╨а┬░╨а┬╢╨бтАШ╨б╨В╨а┬░: ╨б╨В╨а┬╡╨а╨Е╨а╥С╨а┬╡╨б╨В, ╨а╨Е╨а┬░╨а╨Ж╨а╤С╨а╤Ц╨а┬░╨бтАа╨а╤С╨б╨П, ╨а╤Ч╨б╨В╨а╤Х╨а╨Ж╨а┬╡╨б╨В╨а╤Ф╨а┬░ ╨а╤Х╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ╨а╤Х╨а╨Ж, ╨а╤Ч╨б╨В╨а╤Х╨а╤Ц╨б╨В╨а┬╡╨б╨Г╨б╨Г. */
+(function () {
+  'use strict';
+
+  var $ = function (sel) { return document.querySelector(sel); };
+  var esc = function (s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  var fmtText = function (s) { return esc(s).replace(/\n/g, '<br>'); };
+
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  var DIFF = {
+    1: { label: '╨атА║╨а┬╡╨а╤Ц╨а╤Ф╨а╤Х', cls: 'diff-1' },
+    2: { label: '╨а╨О╨б╨В╨а┬╡╨а╥С╨а╨Е╨а┬╡', cls: 'diff-2' },
+    3: { label: '╨а╨О╨а┬╗╨а╤Х╨а┬╢╨а╨Е╨а╤Х', cls: 'diff-3' }
+  };
+
+  /* ╨а╨О╨а┬╡╨б╨Г╨б╨Г╨а╤С╨а╤Х╨а╨Е╨а╨Е╨а┬░╨б╨П ╨атАШ╨атАЭ (╨а╤Ф╨а╤Х╨а╤Ч╨а╤С╨б╨П ╨бтАЪ╨а┬╡╨а╤Ш ╨а╤С ╨а┬╖╨а┬░╨а╥С╨а┬░╨бтАб) */
+  var SessionDB = TasksDB.map(function (topic) {
+    return {
+      id: topic.id, title: topic.title, icon: topic.icon, description: topic.description,
+      theory: topic.theory,
+      tasks: topic.tasks.map(function (t) {
+        return {
+          id: t.id, title: t.title, difficulty: t.difficulty, question: t.question, kind: t.kind,
+          accept: t.accept, options: t.options, answer: t.answer, board: t.board,
+          play: t.play, hints: t.hints || [], solution: t.solution, solutionNote: t.solutionNote
+        };
+      })
+    };
+  });
+
+  var getTopic = function (id) {
+    for (var i = 0; i < SessionDB.length; i++) if (SessionDB[i].id === id) return SessionDB[i];
+    return null;
+  };
+  var getTask = function (topicId, taskId) {
+    var t = getTopic(topicId);
+    if (!t) return null;
+    for (var j = 0; j < t.tasks.length; j++) if (t.tasks[j].id === taskId) return t.tasks[j];
+    return null;
+  };
+
+  var state = {
+    topicId: null,
+    taskId: null,
+    order: [],
+    index: 0,
+    filter: 'all',
+    hintsCount: {},
+    sel: {}
+  };
+
+  /* ---------- ╨а╤Я╨б╨В╨а╤Х╨а╤Ц╨б╨В╨а┬╡╨б╨Г╨б╨Г ---------- */
+  function totals() {
+    var solved = 0, total = 0;
+    SessionDB.forEach(function (topic) {
+      topic.tasks.forEach(function (task) { total++; if (Storage.isSolved(task.id)) solved++; });
+    });
+    return { solved: solved, total: total };
+  }
+
+  function renderGlobalProgress() {
+    var t = totals();
+    var pct = t.total ? Math.round(t.solved / t.total * 100) : 0;
+    $('#global-progress').innerHTML =
+      '<div class="gprog-bar"><div class="gprog-fill" style="width:' + pct + '%"></div></div>' +
+      '<span class="gprog-text">' + t.solved + ' / ' + t.total + ' ╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а╤Х</span>';
+  }
+
+  /* ---------- ╨а╤Я╨б╨В╨а┬╡╨а╥С╨б╨Г╨бтАЪ╨а┬░╨а╨Ж╨а┬╗╨а┬╡╨а╨Е╨а╤С╨б╨П ---------- */
+  function showView(name) {
+    ['home', 'topic', 'task'].forEach(function (v) {
+      $('#view-' + v).classList.toggle('hidden', v !== name);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  function renderHome() {
+    $('#topics-grid').innerHTML = SessionDB.map(function (topic) {
+      var solved = topic.tasks.filter(function (t) { return Storage.isSolved(t.id); }).length;
+      var pct = Math.round(solved / topic.tasks.length * 100);
+      return '<a class="topic-card" href="#t-' + topic.id + '">' +
+        '<div class="topic-icon">' + topic.icon + '</div>' +
+        '<div style="flex:1">' +
+        '<div class="topic-name">' + esc(topic.title) + '</div>' +
+        '<div class="topic-desc">' + esc(topic.description) + '</div>' +
+        '<div class="topic-progress-row">' +
+        '<div class="prog-bar"><div class="prog-fill" style="width:' + pct + '%"></div></div>' +
+        '<span>' + solved + ' / ' + topic.tasks.length + '</span>' +
+        '</div></div></a>';
+    }).join('');
+    renderGlobalProgress();
+  }
+
+  function currentTopic() { return getTopic(state.topicId); }
+  function currentTask() { return getTask(state.topicId, state.taskId); }
+
+  function statusLabel(taskId) {
+    var s = Storage.getState(taskId);
+    if (s.solved && s.hinted) return '╨▓╤Ъ╨Б ╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а┬░ ╨б╨Г ╨а╤Ч╨а╤Х╨а╥С╨б╨Г╨а╤Ф╨а┬░╨а┬╖╨а╤Ф╨а╤Х╨атДЦ';
+    if (s.solved) return '╨▓╤ЪтАж ╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а┬░';
+    if (s.hinted) return '╤А╤ЯтАЩ╨О ╨а╤Ч╨а╤Х╨а╥С╨б╨Г╨а╤Ф╨а┬░╨а┬╖╨а╤Ф╨а┬░';
+    return '';
+  }
+function renderTopic() {
+    var topic = currentTopic();
+    if (!topic) { location.hash = ''; return; }
+    $('#topic-title').textContent = topic.icon + ' ' + topic.title;
+    $('#topic-description').textContent = topic.description;
+
+    var solved = topic.tasks.filter(function (t) { return Storage.isSolved(t.id); }).length;
+    var pct = Math.round(solved / topic.tasks.length * 100);
+    $('#topic-progress').innerHTML =
+      '<div class="prog-bar wide"><div class="prog-fill" style="width:' + pct + '%"></div></div>' +
+      '<span>' + solved + ' / ' + topic.tasks.length + ' ╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а╤Х</span>';
+
+    var filters = [
+      { id: 'all', label: '╨атАЩ╨б╨Г╨а┬╡' },
+      { id: 'unsolved', label: '╨а╤Ь╨а┬╡ ╨б╨В╨а┬╡╨бтВм╨бтАШ╨а╨Е╨а╨Е╨бтА╣╨а┬╡' },
+      { id: 'solved', label: '╨а┬а╨а┬╡╨бтВм╨бтАШ╨а╨Е╨а╨Е╨бтА╣╨а┬╡' }
+    ];
+    $('#topic-filters').innerHTML = filters.map(function (f) {
+      return '<button class="chip' + (state.filter === f.id ? ' active' : '') + '" data-filter="' + f.id + '">' + f.label + '</button>';
+    }).join('');
+
+    var tasks = topic.tasks.filter(function (t) {
+      if (state.filter === 'solved') return Storage.isSolved(t.id);
+      if (state.filter === 'unsolved') return !Storage.isSolved(t.id);
+      return true;
+    });
+
+    $('#task-list').innerHTML = tasks.map(function (t, i) {
+      var st = statusLabel(t.id);
+      var dots = [1, 2, 3].map(function (n) {
+        return '<span class="diff-dot" style="background:' + (n <= t.difficulty ? 'var(--accent)' : 'var(--border)') + '"></span>';
+      }).join('');
+      var icon = st.indexOf('╨▓╤ЪтАж') >= 0 ? '╨▓╤ЪтАж' : st.indexOf('╨▓╤Ъ╨Б') >= 0 ? '╨▓╤Ъ╨Б' : st.indexOf('╤А╤ЯтАЩ╨О') >= 0 ? '╤А╤ЯтАЩ╨О' : '';
+      return '<div class="task-item" data-goto="#task-' + state.topicId + '/' + t.id + '">' +
+        '<div class="task-num">' + (i + 1) + '</div>' +
+        '<div class="task-item-title">' + esc(t.title) + '</div>' +
+        '<div class="diff-dots">' + dots + '</div>' +
+        '<div class="task-item-status">' + (icon ? '<span title="' + st + '">' + icon + '</span>' : '') + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* ---------- ╨атАЬ╨б╨В╨а╤С╨бтАЮ ---------- */
+  function renderFretboard(container, selected) {
+    var selKeys = (selected || []).map(function (c) { return c.string + ':' + c.fret; });
+    var nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+    var head = '<div class="fret-head"><div class="fret-fret-label">╨а╨О╨бтАЪ╨б╨В╨б╤У╨а╨Е╨а┬░</div>' +
+      nums.map(function (f) { return '<div class="fret-label">' + f + '</div>'; }).join('') + '</div>';
+
+    var rows = [];
+    for (var s = 1; s <= 6; s++) {
+      var cellsHtml = nums.map(function (f) {
+        var key = s + ':' + f;
+        var mark = (f === 3 || f === 5 || f === 7 || f === 9) ? '╨▓╨В╤Ю' : f === 12 ? '╨▓тАФ╨Л' : '';
+        return '<button class="fret-note' + (selKeys.indexOf(key) >= 0 ? ' selected' : '') + '" data-s="' + s + '" data-f="' + f + '">' +
+          fretName(s, f) + (mark ? '<span class="fret-marker">' + mark + '</span>' : '') + '</button>';
+      }).join('');
+      rows.push('<div class="fret-head"><div class="fret-fret-label">' + STRING_NOTES[s - 1] + '</div>' + cellsHtml + '</div>');
+    }
+
+    container.innerHTML =
+      '<div class="fret-wrap"><div class="fret-board">' + head + rows.join('') + '</div></div>' +
+      '<div class="play-area"><button class="btn-play" id="play-selection">╤А╤ЯтАЭ╨Й ╨а╨О╨бтА╣╨а╤Ц╨б╨В╨а┬░╨бтАЪ╨б╨К ╨а╤Х╨бтАЪ╨а╤Ш╨а┬╡╨бтАб╨а┬╡╨а╨Е╨а╨Е╨а╤Х╨а┬╡</button></div>' +
+      '<div class="fretboard-hint">1-╨б╨П ╨б╨Г╨бтАЪ╨б╨В╨б╤У╨а╨Е╨а┬░ (high e) ╨б╨Г╨а╨Ж╨а┬╡╨б╨В╨бтАж╨б╤У, 6-╨б╨П (low E) ╨б╨Г╨а╨Е╨а╤С╨а┬╖╨б╤У. ╨а╤Щ╨а┬╗╨а╤С╨а╤Ф ╨▓╨ВтАЭ ╨а╤Х╨бтАЪ╨а╤Ш╨а┬╡╨бтАЪ╨а╤С╨бтАЪ╨б╨К ╨а╨Е╨а╤Х╨бтАЪ╨б╤У.</div>';
+
+    container.onclick = function onClick(e) {
+      var btn = e.target.closest('.fret-note');
+      if (btn) {
+        var cell = { string: parseInt(btn.getAttribute('data-s'), 10), fret: parseInt(btn.getAttribute('data-f'), 10) };
+        var arr = (state.sel[state.taskId] || []).slice();
+        var i = -1;
+        for (var k = 0; k < arr.length; k++) {
+          if (arr[k].string === cell.string && arr[k].fret === cell.fret) { i = k; break; }
+        }
+        if (i >= 0) arr.splice(i, 1); else arr.push(cell);
+        state.sel[state.taskId] = arr;
+        Storage.setAnswer(state.taskId, arr);
+        renderFretboard(container, arr);
+        return;
+      }
+      var playBtn = e.target.closest('#play-selection');
+      if (playBtn) {
+        var cur = state.sel[state.taskId] || [];
+        if (cur.length) {
+          var sorted = cur.slice().sort(function (a, b) { return a.string - b.string || a.fret - b.fret; });
+          var notes = sorted.map(function (c) { return midiName(fretMidi(c.string, c.fret)); });
+          Audio.play({ notes: notes });
+        }
+      }
+    });
+  }
+function debounce(fn, ms) {
+    var t = null;
+    return function () {
+      var self = this, args = arguments;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(self, args); }, ms);
+    };
+  }
+
+  /* ---------- ╨а┬д╨а╤Х╨б╨В╨а╤Ш╨а┬░ ╨а╤Х╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ╨а┬░ ---------- */
+  function renderTaskAnswer(container, task) {
+    container.innerHTML = '';
+    container.onclick = null;
+
+    if (task.kind === 'text') {
+      var savedTxt = Storage.getAnswer(task.id);
+      container.innerHTML =
+        '<input type="text" id="answer-input" class="answer-input" placeholder="╨атАЩ╨а┬░╨бтВм ╨а╤Х╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ..." autocomplete="off" autocapitalize="off" value="' + esc(typeof savedTxt === 'string' ? savedTxt : '') + '">' +
+        '<div class="answer-input-hint">╨а╤Ь╨а┬░╨а╤Ч╨а╤С╨бтВм╨а╤С╨бтАЪ╨а┬╡ ╨а╤Х╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ ╨а╤С ╨а╨Е╨а┬░╨а┬╢╨а╤Ш╨а╤С╨бтАЪ╨а┬╡ Enter ╨а╤С╨а┬╗╨а╤С ╨а╤Ф╨а╨Е╨а╤Х╨а╤Ч╨а╤Ф╨б╤У ╨Т┬л╨▓╤ЪтАЬ ╨а╤Я╨б╨В╨а╤Х╨а╨Ж╨а┬╡╨б╨В╨а╤С╨бтАЪ╨б╨К╨Т┬╗.</div>';
+      var input = container.querySelector('#answer-input');
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') checkCurrent(); });
+      input.addEventListener('input', debounce(function () { Storage.setAnswer(task.id, input.value); }, 300));
+    } else if (task.kind === 'choice') {
+      var savedIdx = parseInt(Storage.getAnswer(task.id), 10);
+      container.innerHTML = '<div class="option-list">' + task.options.map(function (opt, i) {
+        return '<button class="option-btn' + (i === savedIdx ? ' selected' : '') + '" data-i="' + i + '" value="' + i + '">' + esc(opt) + '</button>';
+      }).join('') + '</div>';
+      container.onclick = function (e) {
+        var b = e.target.closest('.option-btn');
+        if (!b) return;
+        var i = parseInt(b.getAttribute('data-i'), 10);
+        Storage.setAnswer(task.id, i);
+        var all = container.querySelectorAll('.option-btn');
+        for (var k = 0; k < all.length; k++) all[k].classList.toggle('selected', k === i);
+      };
+    } else if (task.kind === 'fretboard') {
+      var savedCells = Storage.getAnswer(task.id);
+      if (!Array.isArray(savedCells)) savedCells = [];
+      state.sel[task.id] = savedCells;
+      renderFretboard(container, savedCells);
+    }
+  }
+
+  function collectCurrentAnswer() {
+    var task = currentTask();
+    if (!task) return '';
+    if (task.kind === 'text') {
+      var inp = $('#answer-input');
+      return inp ? inp.value : '';
+    }
+    if (task.kind === 'choice') {
+      var idx = parseInt(Storage.getAnswer(task.id), 10);
+      return isNaN(idx) ? -1 : idx;
+    }
+    if (task.kind === 'fretboard') return state.sel[task.id] || [];
+    return '';
+  }
+
+  /* ---------- ╨а╤Я╨б╨В╨а╤Х╨а╨Ж╨а┬╡╨б╨В╨а╤Ф╨а┬░ ---------- */
+  function checkCurrent() {
+    var task = currentTask();
+    if (!task) return;
+    var answer = collectCurrentAnswer();
+    if (task.kind === 'choice' && answer < 0) {
+      renderResult(task, { pass: false, message: '╨а╨О╨а╨Е╨а┬░╨бтАб╨а┬░╨а┬╗╨а┬░ ╨а╨Ж╨бтА╣╨а┬▒╨а┬╡╨б╨В╨а╤С╨бтАЪ╨а┬╡ ╨а╤Х╨а╥С╨а╤С╨а╨Е ╨а╤С╨а┬╖ ╨а╨Ж╨а┬░╨б╨В╨а╤С╨а┬░╨а╨Е╨бтАЪ╨а╤Х╨а╨Ж ╨а╤Х╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ╨а┬░.' });
+      return;
+    }
+    var res = Runner.check(task, answer);
+    renderResult(task, res);
+    if (res.pass) {
+      Storage.setSolved(task.id, true);
+      if ((state.hintsCount[task.id] || 0) > 0) Storage.setHinted(task.id, true);
+      updateTaskStatus();
+    }
+  }
+
+  function fmtAnswer(v) {
+    if (v === null || typeof v === 'undefined') return '╨▓╨ВтАЭ';
+    if (Array.isArray(v)) return v.length ? v.join(', ') : '╨▓╨ВтАЭ';
+    return String(v);
+  }
+
+  function renderResult(task, res) {
+    $('#results-card').classList.remove('hidden');
+    $('#results-summary').innerHTML =
+      '<div class="results-summary ' + (res.pass ? 'summary-ok' : 'summary-error') + '">' +
+      (res.pass ? '╨▓╤ЪтАж ' : '╨▓╤Ь╨К ') + esc(res.message) + '</div>';
+    if (res.pass) {
+      $('#results-list').innerHTML = '';
+    } else {
+      $('#results-list').innerHTML =
+        '<div class="result fail"><div class="result-head">╨атАЩ╨а┬░╨бтВм ╨а╤Х╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ</div>' +
+        '<div class="result-line"><code>' + esc(fmtAnswer(res.actual)) + '</code></div></div>';
+    }
+  }
+/* ---------- ╨а╨О╨бтАЪ╨б╨В╨а┬░╨а╨Е╨а╤С╨бтАа╨а┬░ ╨а┬╖╨а┬░╨а╥С╨а┬░╨бтАб╨а╤С ---------- */
+  function showTask() {
+    var task = currentTask();
+    if (!task) { location.hash = '#t-' + state.topicId; return; }
+    var topic = currentTopic();
+    var diff = DIFF[task.difficulty] || DIFF[1];
+
+    $('#task-difficulty').textContent = diff.label;
+    $('#task-difficulty').className = 'badge ' + diff.cls;
+    $('#task-topic-label').textContent = topic.icon + ' ' + topic.title;
+    $('#task-title').textContent = task.title;
+    $('#task-question').innerHTML = fmtText(task.question);
+    $('#task-status').textContent = statusLabel(task.id);
+
+    $('#play-area').innerHTML = '';
+    if (task.play) {
+      var btnPlay = document.createElement('button');
+      btnPlay.className = 'btn-play';
+      btnPlay.textContent = '╤А╤ЯтАЭ╨Й ╨а╨О╨бтА╣╨а╤Ц╨б╨В╨а┬░╨бтАЪ╨б╨К ╨а╤Ч╨б╨В╨а╤С╨а╤Ш╨а┬╡╨б╨В';
+      btnPlay.addEventListener('click', function () { Audio.resume(); Audio.play(task.play); });
+      $('#play-area').appendChild(btnPlay);
+    }
+
+    state.hintsCount[task.id] = 0;
+    $('#hints-block').innerHTML = '';
+    $('#btn-hint').disabled = false;
+    $('#btn-hint').textContent = '╤А╤ЯтАЩ╨О ╨а╤Я╨а╤Х╨а╤Ф╨а┬░╨а┬╖╨а┬░╨бтАЪ╨б╨К ╨а╤Ч╨а╤Х╨а╥С╨б╨Г╨а╤Ф╨а┬░╨а┬╖╨а╤Ф╨б╤У';
+    $('#results-card').classList.add('hidden');
+
+    renderTaskAnswer($('#answer-area'), task);
+  }
+
+  function showNextHint(task) {
+    if (!task || !task.hints || !task.hints.length) return;
+    state.hintsCount[task.id] = (state.hintsCount[task.id] || 0) + 1;
+    Storage.setHinted(task.id, true);
+    var shown = task.hints.slice(0, state.hintsCount[task.id]);
+    $('#hints-block').innerHTML = shown.map(function (h) {
+      return '<div class="hint">╤А╤ЯтАЩ╨О ' + esc(h) + '</div>';
+    }).join('');
+    if (state.hintsCount[task.id] >= task.hints.length) {
+      $('#btn-hint').textContent = '╨а╤Я╨а╤Х╨а╥С╨б╨Г╨а╤Ф╨а┬░╨а┬╖╨а╤Х╨а╤Ф ╨а┬▒╨а╤Х╨а┬╗╨б╨К╨бтВм╨а┬╡ ╨а╨Е╨а┬╡╨бтАЪ';
+      $('#btn-hint').disabled = true;
+    }
+    updateTaskStatus();
+  }
+
+  function showSolution(task) {
+    if (!task) return;
+    Storage.setSolved(task.id, true);
+    Storage.setHinted(task.id, true);
+    $('#hints-block').innerHTML = '';
+    $('#results-summary').innerHTML = '<div class="summary-partial">╨атАФ╨а┬░╨а╥С╨а┬░╨бтАб╨а┬░ ╨а╤Х╨бтАЪ╨а╤Ш╨а┬╡╨бтАб╨а┬╡╨а╨Е╨а┬░ ╨а╤Ф╨а┬░╨а╤Ф ╨Т┬л╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а┬░ ╨б╨Г ╨а╤Ч╨а╤Х╨а╥С╨б╨Г╨а╤Ф╨а┬░╨а┬╖╨а╤Ф╨а╤Х╨атДЦ╨Т┬╗ ╨▓╤Ъ╨Б</div>';
+    $('#results-list').innerHTML =
+      '<div class="solution-title">╤А╤ЯтАЬтАУ ╨а╤Ы╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ ╨а╤С ╨а╤Ч╨а╤Х╨б╨П╨б╨Г╨а╨Е╨а┬╡╨а╨Е╨а╤С╨а┬╡</div>' +
+      '<div class="solution-code">' + esc(task.solution) + '</div>' +
+      (task.solutionNote ? '<div class="solution-note">' + esc(task.solutionNote) + '</div>' : '');
+    $('#results-card').classList.remove('hidden');
+    updateTaskStatus();
+  }
+
+  /* ---------- ╨а╤Ъ╨а╤Х╨а╥С╨а┬░╨а┬╗╨а╤Ф╨а╤С ---------- */
+  var modalCb = null;
+  function openModal(title, body, cb) {
+    $('#modal-title').textContent = title;
+    $('#modal-body').innerHTML = body;
+    modalCb = cb;
+    $('#modal-backdrop').classList.remove('hidden');
+  }
+  function closeModal(ok) {
+    $('#modal-backdrop').classList.add('hidden');
+    if (ok && modalCb) { var cb = modalCb; modalCb = null; cb(); }
+  }
+
+  /* ---------- ╨а╤Ю╨а┬╡╨а╤Х╨б╨В╨а╤С╨б╨П ---------- */
+  function openTheory(topicId) {
+    var topic = getTopic(topicId);
+    if (!topic) return;
+    $('#theory-topic-icon').textContent = topic.icon;
+    $('#theory-topic-title').textContent = topic.title;
+    $('#theory-content').innerHTML = (topic.theory || []).map(function (sec, i) {
+      var playHtml = sec.play ? '<button class="btn-play theory-play" data-thplay="' + i + '">╤А╤ЯтАЭ╨Й ╨а╤Я╨б╨В╨а╤Х╨б╨Г╨а┬╗╨б╤У╨бтВм╨а┬░╨бтАЪ╨б╨К</button>' : '';
+      return '<div class="theory-section"><h3 class="theory-h">' + (i + 1) + '. ' + esc(sec.h) + '</h3>' +
+        fmtText(sec.text) +
+        (sec.code ? '<pre class="inline-code solution-code">' + esc(sec.code) + '</pre>' : '') +
+        playHtml + '</div>';
+    }).join('');
+    $('#theory-backdrop').classList.remove('hidden');
+  }
+  function closeTheory() { $('#theory-backdrop').classList.add('hidden'); }
+
+  /* ---------- ╨а╤Ь╨а┬░╨а╨Ж╨а╤С╨а╤Ц╨а┬░╨бтАа╨а╤С╨б╨П ---------- */
+  function resetOrder(topic) {
+    state.orderTopic = topic.id;
+    state.order = topic.tasks.map(function (t) { return t.id; });
+    state.index = 0;
+  }
+
+  function navigate() {
+    var h = location.hash || '';
+    if (h.indexOf('#task-') === 0) {
+      var parts = h.slice(6).split('/');
+      var tid = parts[0], tkid = parts[1];
+      var topic = getTopic(tid);
+      if (!topic) { location.hash = ''; return; }
+      state.topicId = tid;
+      if (state.orderTopic !== tid) resetOrder(topic);
+      state.taskId = tkid;
+      state.index = state.order.indexOf(tkid);
+      if (state.index < 0) { state.index = 0; state.taskId = state.order[0]; }
+      showView('task');
+      showTask();
+    } else if (h.indexOf('#t-') === 0) {
+      var id2 = h.slice(3);
+      var t2 = getTopic(id2);
+      if (!t2) { location.hash = ''; return; }
+      state.topicId = id2;
+      if (state.orderTopic !== id2) resetOrder(t2);
+      showView('topic');
+      renderTopic();
+    } else {
+      state.topicId = null;
+      showView('home');
+      renderHome();
+    }
+    renderGlobalProgress();
+  }
+/* ---------- ╨а╨О╨а╤Х╨а┬▒╨бтА╣╨бтАЪ╨а╤С╨б╨П ---------- */
+  function bindEvents() {
+    $('#btn-home').addEventListener('click', function () { location.hash = ''; });
+    $('#btn-back-home').addEventListener('click', function () { location.hash = ''; });
+    $('#btn-reset-progress').addEventListener('click', function () {
+      openModal('╨а╨О╨а┬▒╨б╨В╨а╤Х╨б╨Г╨а╤С╨бтАЪ╨б╨К ╨а╤Ч╨б╨В╨а╤Х╨а╤Ц╨б╨В╨а┬╡╨б╨Г╨б╨Г?', '╨атАЩ╨б╨Г╨а┬╡ ╨а╤Х╨бтАЪ╨а╤Ш╨а┬╡╨бтАЪ╨а╤Ф╨а╤С ╨Т┬л╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а╤Х╨Т┬╗ ╨а╤С ╨б╨Г╨а╤Х╨бтАж╨б╨В╨а┬░╨а╨Е╨бтАШ╨а╨Е╨а╨Е╨бтА╣╨а┬╡ ╨а╤Х╨бтАЪ╨а╨Ж╨а┬╡╨бтАЪ╨бтА╣ ╨а┬▒╨б╤У╨а╥С╨б╤У╨бтАЪ ╨б╤У╨а╥С╨а┬░╨а┬╗╨а┬╡╨а╨Е╨бтА╣. ╨а┬н╨бтАЪ╨а╤Х ╨а╥С╨а┬╡╨атДЦ╨б╨Г╨бтАЪ╨а╨Ж╨а╤С╨а┬╡ ╨а╨Е╨а┬╡╨а┬╗╨б╨К╨а┬╖╨б╨П ╨а╤Х╨бтАЪ╨а╤Ш╨а┬╡╨а╨Е╨а╤С╨бтАЪ╨б╨К.', function () {
+        Storage.resetAll();
+        state.sel = {};
+        renderHome();
+      });
+    });
+    $('#btn-back-topic').addEventListener('click', function () { location.hash = '#t-' + state.topicId; });
+
+    $('#btn-shuffle').addEventListener('click', function () {
+      var topic = currentTopic();
+      if (!topic) return;
+      state.order = shuffle(topic.tasks.map(function (t) { return t.id; }));
+      state.orderTopic = topic.id;
+      renderTopic();
+    });
+    $('#btn-shuffle-task').addEventListener('click', function () {
+      var topic = currentTopic();
+      if (!topic || topic.tasks.length < 2) return;
+      var idx;
+      do { idx = Math.floor(Math.random() * topic.tasks.length); } while (idx === state.index);
+      location.hash = '#task-' + state.topicId + '/' + state.order[idx];
+    });
+    $('#btn-next-task').addEventListener('click', function () {
+      var topic = currentTopic();
+      if (!topic) return;
+      state.index = (state.index + 1) % state.order.length;
+      location.hash = '#task-' + state.topicId + '/' + state.order[state.index];
+    });
+
+    $('#btn-check').addEventListener('click', checkCurrent);
+    $('#btn-reset').addEventListener('click', function () {
+      var task = currentTask();
+      if (!task) return;
+      Storage.setAnswer(task.id, task.kind === 'choice' ? null : (task.kind === 'fretboard' ? [] : ''));
+      state.sel[task.id] = [];
+      $('#results-card').classList.add('hidden');
+      renderTaskAnswer($('#answer-area'), task);
+    });
+    $('#btn-hint').addEventListener('click', function () { showNextHint(currentTask()); });
+    $('#btn-solution').addEventListener('click', function () {
+      openModal('╨а╤Я╨а╤Х╨а╤Ф╨а┬░╨а┬╖╨а┬░╨бтАЪ╨б╨К ╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а╤С╨а┬╡?', '╨атАФ╨а┬░╨а╥С╨а┬░╨бтАб╨а┬░ ╨а┬▒╨б╤У╨а╥С╨а┬╡╨бтАЪ ╨а╤Х╨бтАЪ╨а╤Ш╨а┬╡╨бтАб╨а┬╡╨а╨Е╨а┬░ ╨а╤Ф╨а┬░╨а╤Ф ╨Т┬л╨б╨В╨а┬╡╨бтВм╨а┬╡╨а╨Е╨а┬░ ╨б╨Г ╨а╤Ч╨а╤Х╨а╥С╨б╨Г╨а╤Ф╨а┬░╨а┬╖╨а╤Ф╨а╤Х╨атДЦ╨Т┬╗ ╨▓╤Ъ╨Б', function () {
+        showSolution(currentTask());
+      });
+    });
+
+    $('#btn-theory').addEventListener('click', function () { openTheory(state.topicId); });
+    $('#btn-theory-task').addEventListener('click', function () { openTheory(state.topicId); });
+    $('#theory-close').addEventListener('click', closeTheory);
+    $('#theory-start').addEventListener('click', closeTheory);
+    $('#theory-backdrop').addEventListener('click', function (e) { if (e.target === $('#theory-backdrop')) closeTheory(); });
+    $('#theory-content').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-thplay]');
+      if (!b) return;
+      var t = getTopic(state.topicId);
+      var sec = t && t.theory ? t.theory[parseInt(b.getAttribute('data-thplay'), 10)] : null;
+      if (sec && sec.play) { Audio.resume(); Audio.play(sec.play); }
+    });
+
+    $('#topic-filters').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-filter]');
+      if (btn) { state.filter = btn.getAttribute('data-filter'); renderTopic(); }
+    });
+    $('#task-list').addEventListener('click', function (e) {
+      var item = e.target.closest('[data-goto]');
+      if (item) location.hash = item.getAttribute('data-goto');
+    });
+
+    $('#modal-ok').addEventListener('click', function () { closeModal(true); });
+    $('#modal-cancel').addEventListener('click', function () { closeModal(false); });
+    $('#modal-backdrop').addEventListener('click', function (e) { if (e.target === $('#modal-backdrop')) closeModal(false); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.ctrlKey && e.key === 'Enter') checkCurrent();
+      if (e.key === 'Escape') { closeModal(false); closeTheory(); }
+    });
+
+    window.addEventListener('hashchange', navigate);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    bindEvents();
+    navigate();
+  });
+})();
+</script>
+<script>document.body.appendChild((function(){var d=document.createElement("div");d.id="oi";d.style.cssText="white-space:pre;font:11px monospace";d.textContent="ERRCOUNT="+window.__e.length+" :: "+window.__e.join(" ;; ");return d;})());</script><div id="oi" style="white-space: pre; font: 11px monospace;">ERRCOUNT=1 :: Uncaught SyntaxError: Unexpected token ')' | line 219</div>
+
+</body></html>

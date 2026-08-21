@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><title>scratch-validate</title></head>
+<body>
+  <script src="js/data/core.js"></script>
+  <script src="js/data/t01-notes.js"></script>
+  <script src="js/data/t02-intervals.js"></script>
+  <script src="js/data/t03-major.js"></script>
+  <script src="js/data/t04-minor.js"></script>
+  <script src="js/data/t05-triads.js"></script>
+  <script src="js/data/t06-sevenths.js"></script>
+  <script src="js/data/t07-chords.js"></script>
+  <script src="js/data/t08-pentatonic.js"></script>
+  <script src="js/data/t09-circle.js"></script>
+  <script>
+  (function () {
+    var out = [];
+    out.push('topics=' + TasksDB.length);
+    var total = 0, ids = {}, dup = 0, badHints = 0, badSol = 0, badCell = 0, badKind = 0, badChoice = 0, badDiff = 0;
+    TasksDB.forEach(function (t) {
+      var n = (t.tasks || []).length;
+      total += n;
+      out.push(t.id + ' tasks=' + n + ' theory=' + ((t.theory || []).length));
+      t.tasks.forEach(function (task) {
+        if (ids[task.id]) { dup++; out.push('  DUP ' + task.id); }
+        ids[task.id] = 1;
+        if (!task.difficulty || task.difficulty < 1 || task.difficulty > 3) badDiff++;
+        if (!Array.isArray(task.hints) || !task.hints.length) { badHints++; out.push('  NO-HINTS ' + task.id); }
+        if (!task.solution) { badSol++; out.push('  NO-SOL ' + task.id); }
+        if (['text', 'choice', 'fretboard'].indexOf(task.kind) < 0) { badKind++; out.push('  BAD-KIND ' + task.id); }
+        if (task.kind === 'choice') {
+          if (!Array.isArray(task.options) || task.options.length < 2 || typeof task.answer !== 'number' || task.answer < 0 || task.answer >= task.options.length) { badChoice++; out.push('  BAD-CHOICE ' + task.id); }
+        }
+        if (task.kind === 'fretboard' && Array.isArray(task.board)) {
+          var bad = task.board.filter(function (c) { return !c || c.string < 1 || c.string > 6 || c.fret < 0 || c.fret > 12; });
+          if (bad.length) { badCell++; out.push('  BAD-CELL ' + task.id); }
+        }
+      });
+    });
+    out.push('total=' + total + ' dup=' + dup + ' noHints=' + badHints + ' noSol=' + badSol + ' kinds=' + JSON.stringify({ text: 0, choice: 0, fretboard: 0 }));
+    try {
+      document.getElementById('x').textContent = out.join('\n');
+    } catch (e) { var d = document.createElement('div'); d.id = 'x'; d.style.cssText = 'white-space:pre;font:11px monospace;'; d.textContent = out.join('\n'); document.body.appendChild(d); }
+  })();
+  </script><div id="x" style="white-space: pre; font: 11px monospace;">topics=8
+notes tasks=15 theory=3
+  NO-HINTS n-11
+intervals tasks=15 theory=3
+major tasks=15 theory=3
+triads tasks=15 theory=3
+sevenths tasks=15 theory=3
+chords tasks=15 theory=3
+pentatonic tasks=15 theory=3
+circle tasks=15 theory=3
+total=120 dup=0 noHints=1 noSol=0 kinds={"text":0,"choice":0,"fretboard":0}</div>
+
+</body></html>

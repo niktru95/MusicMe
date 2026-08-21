@@ -1,0 +1,5 @@
+﻿FIXED t02-intervals.js
+FIXED t03-major.js
+FIXED t05-triads.js
+FIXED t06-sevenths.js
+FIXED t08-pentatonic.js

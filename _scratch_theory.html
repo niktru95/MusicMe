@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"></head><body>
+<script src="js/data/core.js"></script>
+<script src="js/data/t01-notes.js"></script>
+<script>
+(function () {
+  var t = null;
+  TasksDB.forEach(function (x) { if (x.id === 'notes') t = x; });
+  var out = [];
+  if (!t) { out.push('NO TOPIC'); }
+  else {
+    out.push('theorySections=' + t.theory.length);
+    t.theory.forEach(function (sec, i) {
+      var hasNL = sec.text.indexOf('\n') >= 0;
+      var hasBSN = sec.text.indexOf('\\') >= 0;
+      out.push(i + ' `' + (sec.h || '') + '` hasRealNewline=' + hasNL + ' hasBackslash=' + hasBSN + ' len=' + sec.text.length);
+    });
+  }
+  var d = document.createElement('div'); d.id='th'; d.style.cssText='white-space:pre;font:11px monospace;';
+  d.textContent = out.join('\n');
+  document.body.appendChild(d);
+})();
+</script>
+</body></html>
