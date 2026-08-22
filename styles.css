@@ -195,3 +195,137 @@ main { max-width: 1100px; margin: 0 auto; padding: 26px 18px 70px; }
 .theory-section .inline-code { margin-top: 8px; }
 .theory-play { margin-top: 8px; }
 .theory-footer { padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
+/* ==========================================================
+   АДАПТИВ
+   ========================================================== */
+
+/* ----- Планшеты и узкие окна (до 900px) ----- */
+@media (max-width: 900px) {
+  .task-layout { grid-template-columns: 1fr; gap: 18px; }
+  .task-right { position: static; }
+}
+
+/* ----- Телефоны (до 640px) ----- */
+@media (max-width: 640px) {
+  body {
+    -webkit-tap-highlight-color: rgba(124, 58, 237, 0.14);
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Шапка */
+  .header-inner { padding: 8px 12px; gap: 10px; }
+  .logo {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 16px; padding: 4px 6px;
+  }
+  .global-progress { gap: 6px; }
+  .gprog-bar { width: 88px; height: 6px; }
+  .gprog-text { font-size: 12px; }
+
+  /* Общее */
+  main { padding: 18px 12px 56px; }
+  .page-title { font-size: 22px; }
+  .page-subtitle { font-size: 13.5px; margin-bottom: 16px; }
+  .app-footer { font-size: 12px; padding: 14px 12px calc(14px + env(safe-area-inset-bottom)); }
+
+  .btn { padding: 10px 14px; font-size: 15px; }
+  .btn.sm { padding: 8px 12px; font-size: 13.5px; }
+  .btn, .chip, .option-btn, .fret-note, .topic-card, .task-item {
+    touch-action: manipulation;
+  }
+
+  /* Главная */
+  .home-actions { margin-bottom: 14px; }
+  .home-actions .btn { flex: 1; }
+  .topics-grid { grid-template-columns: 1fr; gap: 12px; }
+  .topic-card { padding: 14px; border-radius: 12px; gap: 12px; }
+  .topic-icon { font-size: 30px; }
+  .topic-name { font-size: 16.5px; }
+
+  /* Список тем */
+  .filters { gap: 6px; margin-bottom: 12px; }
+  .chip { padding: 8px 14px; font-size: 13px; }
+  .topic-progress .prog-bar.wide { width: 150px; }
+  .task-item { gap: 10px; padding: 12px; border-radius: 11px; }
+  .task-item-title { min-width: 0; }
+  .topic-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
+  }
+  .topic-actions .btn { margin: 0; width: 100%; text-align: center; }
+
+  /* Навигация задачи */
+  .task-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .task-nav .btn { margin: 0; width: 100%; text-align: center; white-space: normal; }
+  #btn-back-topic, #btn-next-task { grid-column: 1 / -1; }
+  #btn-next-task {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-color: transparent; color: #fff;
+  }
+
+  /* Карточка задачи */
+  .task-card { padding: 14px; }
+  .task-title { font-size: 18px; }
+  .task-meta { gap: 6px; }
+  .task-status { font-size: 12px; }
+  /* Не даём грифу растягивать сетку: скроллим внутри .fret-wrap */
+  .task-left, .task-right, .answer-area { min-width: 0; }
+  .answer-area { width: 100%; }
+  .editor-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px;
+  }
+  .editor-actions .btn { margin: 0; width: 100%; text-align: center; }
+
+  /* Формы ответа */
+  .answer-input { font-size: 16px; }
+  .option-btn { padding: 14px; font-size: 14.5px; }
+  .result-line code { word-break: break-all; }
+  .solution-code { font-size: 13px; word-break: break-word; }
+
+  /* Гриф: горизонтальная прокрутка, клетки крупные */
+  .fret-wrap { -webkit-overflow-scrolling: touch; padding: 10px 4px; max-width: 100%; }
+  .fret-board { min-width: 600px; }
+  .fret-note { min-height: 40px; }
+  .fretboard-hint { font-size: 12px; }
+
+  /* Модалки: «снизу вверх» */
+  .modal-backdrop { padding: 0; align-items: flex-end; }
+  .modal {
+    border-radius: 18px 18px 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+  .modal-wide {
+    max-height: none; height: 92vh; border-radius: 0;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+  .theory-head {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  }
+  .theory-title { font-size: 17px; }
+  .theory-close { padding: 6px 8px; font-size: 12px; }
+  .theory-content { -webkit-overflow-scrolling: touch; }
+  .inline-code { font-size: 12.5px; }
+}
+
+/* ----- Очень узкие экраны (до 380px) ----- */
+@media (max-width: 380px) {
+  .gprog-bar { width: 60px; }
+  .gprog-text { font-size: 11px; }
+  .page-title { font-size: 20px; }
+  .solution-code { font-size: 12px; }
+}
+
+/* ----- Тач-устройства: убираем «залипающие» hover-эффекты ----- */
+@media (hover: none) {
+  .topic-card:hover { transform: none; box-shadow: var(--shadow); }
+  .task-item:hover { transform: none; }
+  .btn:hover { color: var(--text); border-color: var(--border); }
+  .btn.primary:hover, .btn-play:hover { filter: none; color: #fff; }
+  .chip:hover { background: var(--card); border-color: var(--border); color: var(--muted); }
+  .option-btn:hover { border-color: var(--border); }
+  .fret-note:hover { background: #1e293b; color: #cbd5e1; }
+  .logo:hover { background: transparent; }
+}
