@@ -7,6 +7,26 @@
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   };
   var fmtText = function (s) { return esc(s).replace(/\n/g, '<br>'); };
+/* Показать заметное сообщение, если звук не удалось воспроизвести
+     (раньше клик по кнопке молча «ничего не делал»). */
+  function audioWarn(container) {
+    var host = typeof container === 'string' ? $(container) : container;
+    if (!host) return;
+    var old = host.querySelector('.audio-warn');
+    if (old) old.remove();
+    var w = document.createElement('div');
+    w.className = 'audio-warn';
+    w.textContent = '⚠️ Аудио недоступно: браузер не поддерживает Web Audio или заблокировал звук.';
+    host.appendChild(w);
+    setTimeout(function () { if (w.parentNode) w.parentNode.removeChild(w); }, 6000);
+  }
+
+  /* Воспроизвести пример; при неудаче — показать внятное сообщение. */
+  function tryPlay(spec, container) {
+    if (!spec) return;
+    var ok = Audio.play(spec);
+    if (!ok) audioWarn(container);
+  }
 
   function shuffle(arr) {
     var a = arr.slice();
@@ -111,6 +131,13 @@
     if (s.hinted) return '💡 подсказка';
     return '';
   }
+
+  /* Обновить статус текущей задачи (после проверки, подсказки или решения) */
+  function updateTaskStatus() {
+    var task = currentTask();
+    if (task) $('#task-status').textContent = statusLabel(task.id);
+  }
+
 function renderTopic() {
     var topic = currentTopic();
     if (!topic) { location.hash = ''; return; }
@@ -198,7 +225,7 @@ function renderTopic() {
         if (cur.length) {
           var sorted = cur.slice().sort(function (a, b) { return a.string - b.string || a.fret - b.fret; });
           var notes = sorted.map(function (c) { return midiName(fretMidi(c.string, c.fret)); });
-          Audio.play({ notes: notes });
+          tryPlay({ notes: notes }, container);
         }
       }
     };
@@ -317,7 +344,7 @@ function debounce(fn, ms) {
       var btnPlay = document.createElement('button');
       btnPlay.className = 'btn-play';
       btnPlay.textContent = '🔊 Сыграть пример';
-      btnPlay.addEventListener('click', function () { Audio.resume(); Audio.play(task.play); });
+      btnPlay.addEventListener('click', function () { tryPlay(task.play, $('#play-area')); });
       $('#play-area').appendChild(btnPlay);
     }
 
@@ -485,7 +512,7 @@ function debounce(fn, ms) {
       if (!b) return;
       var t = getTopic(state.topicId);
       var sec = t && t.theory ? t.theory[parseInt(b.getAttribute('data-thplay'), 10)] : null;
-      if (sec && sec.play) { Audio.resume(); Audio.play(sec.play); }
+      if (sec && sec.play) { tryPlay(sec.play, $('#theory-content')); }
     });
 
     $('#topic-filters').addEventListener('click', function (e) {

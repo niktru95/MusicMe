@@ -1,8 +1,0 @@
-﻿
-Name               Length
-----               ------
-_proto_browser.txt    119
-_proto_dom.html      7599
-_proto_list.txt         0
-
-

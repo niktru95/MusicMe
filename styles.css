@@ -329,3 +329,15 @@ main { max-width: 1100px; margin: 0 auto; padding: 26px 18px 70px; }
   .fret-note:hover { background: #1e293b; color: #cbd5e1; }
   .logo:hover { background: transparent; }
 }
+/* ----- Сообщение, когда звук воспроизвести не удалось ----- */
+.audio-warn {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: var(--warn);
+  font-size: 13px;
+  line-height: 1.4;
+}
