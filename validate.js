@@ -7,7 +7,9 @@ const files = [
   'js/data/core.js',
   'js/data/t01-notes.js', 'js/data/t02-intervals.js', 'js/data/t03-major.js',
   'js/data/t04-minor.js', 'js/data/t05-triads.js', 'js/data/t06-sevenths.js',
-  'js/data/t07-chords.js', 'js/data/t08-pentatonic.js', 'js/data/t09-circle.js'
+  'js/data/t07-chords.js', 'js/data/t08-pentatonic.js', 'js/data/t09-circle.js',
+  'js/data/t10-progressions.js', 'js/data/t11-inversions.js', 'js/data/t12-modes.js',
+  'js/data/t13-rhythm.js', 'js/data/t14-ear.js'
 ];
 const dataCtx = { TasksDB: [], console };
 for (const f of files) {

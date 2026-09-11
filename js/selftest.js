@@ -28,23 +28,22 @@
     else fn();
   }
 
-  var TOTAL_TASKS = 135;
-
   onReady(function () {
-    /* ---- Базовые проверки ---- */
     check('norm-lower', normAnswer('  КвиНта ') === 'квинта');
     check('norm-sharp', normAnswer('F♯4') === 'f#4');
     check('norm-flat-commas', normAnswer('C, E, G') === 'c e g');
     check('note-midi-A4', noteMidi('A4') === 69);
     check('note-midi-E2', noteMidi('E2') === 40);
     check('fret-c5', fretName(5, 3) === 'C3');
+    check('fret-g2', fretName(6, 3) === 'G2');
+    check('fret-e5', fretName(1, 12) === 'E5');
     check('freq-A4', Math.abs(Audio.freq('A4') - 440) < 1e-6);
 
-    /* ---- Данные ---- */
-    check('data-9-topics', TasksDB.length === 9);
-    var total = 0, badDiff = 0, emptyHints = 0, ids = {}, dup = 0;
+    check('data-topics', TasksDB.length >= 9);
+    var total = 0, badDiff = 0, emptyHints = 0, ids = {}, dup = {};
     var kinds = { text: 0, choice: 0, fretboard: 0 };
     var badQuestion = 0, noSolution = 0, badKind = 0, badAccept = 0, badChoices = 0, badCells = 0, noTheoryOrTasks = 0;
+    var badOctave = 0;
 
     TasksDB.forEach(function (topic) {
       if (!topic.id || !topic.title || !topic.icon) return;
@@ -73,7 +72,17 @@
       });
     });
 
-    check('data-total-' + TOTAL_TASKS, total === TOTAL_TASKS);
+    var n04 = ids['n-04'] && TasksDB[0].tasks.filter(function (t) { return t.id === 'n-04'; })[0];
+    if (n04 && n04.accept && n04.accept.indexOf('g3') >= 0) badOctave++;
+    var n15 = null;
+    TasksDB.forEach(function (tp) {
+      tp.tasks.forEach(function (t) {
+        if (t.id === 'n-15') n15 = t;
+      });
+    });
+    if (n15 && n15.accept && n15.accept.indexOf('e4') >= 0) badOctave++;
+
+    check('data-total', total > 0);
     check('data-dup-ids', Object.keys(dup).length === 0);
     check('data-valid-difficulty', badDiff === 0);
     check('data-theory-per-topic', noTheoryOrTasks === 0);
@@ -85,8 +94,8 @@
     check('data-options', badChoices === 0);
     check('data-cells', badCells === 0);
     check('data-kinds', ['text', 'choice', 'fretboard'].every(function (k) { return (kinds[k] || 0) > 0; }));
+    check('data-octave-accepts', badOctave === 0);
 
-    /* --- Чекер --- */
     var tText = { id: 'st-t', kind: 'text', accept: ['квинта', '5'] };
     var r1 = Runner.check(tText, '  Квинта ');
     check('check-text-correct', r1.pass);

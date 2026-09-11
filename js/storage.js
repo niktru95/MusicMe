@@ -9,10 +9,18 @@ var Storage = {
       return p && typeof p === 'object' ? p : {};
     } catch (e) { return {}; }
   },
+  _write: function (key, obj) {
+    try {
+      localStorage.setItem(key, JSON.stringify(obj));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
   setState: function (taskId, patch) {
     var p = this.getProgress();
     p[taskId] = Object.assign({}, p[taskId] || {}, patch);
-    localStorage.setItem(this.KEY_PROGRESS, JSON.stringify(p));
+    this._write(this.KEY_PROGRESS, p);
   },
   setSolved: function (taskId, solved) { this.setState(taskId, { solved: !!solved }); },
   setHinted: function (taskId, hinted) { this.setState(taskId, { hinted: !!hinted }); },
@@ -30,7 +38,7 @@ var Storage = {
   setAnswer: function (taskId, value) {
     var d = this.getAnswers();
     d[taskId] = value;
-    localStorage.setItem(this.KEY_ANSWERS, JSON.stringify(d));
+    this._write(this.KEY_ANSWERS, d);
   },
 
   resetAll: function () {

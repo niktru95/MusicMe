@@ -75,7 +75,6 @@ function normAnswer(s) {
     .replace(/♭/g, 'b')
     .replace(/[,.]/g, ' ')
     .replace(/\s+/g, ' ')
-    .replace(/\s+/g, ' ')
     .trim();
 }
 

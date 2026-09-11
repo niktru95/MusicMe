@@ -24,8 +24,10 @@
   /* Воспроизвести пример; при неудаче — показать внятное сообщение. */
   function tryPlay(spec, container) {
     if (!spec) return;
-    var ok = Audio.play(spec);
-    if (!ok) audioWarn(container);
+    var result = Audio.play(spec);
+    if (result && typeof result.then === 'function') {
+      result.then(function (ok) { if (!ok) audioWarn(container); });
+    } else if (!result) audioWarn(container);
   }
 
   function shuffle(arr) {
@@ -124,6 +126,26 @@
   function currentTopic() { return getTopic(state.topicId); }
   function currentTask() { return getTask(state.topicId, state.taskId); }
 
+  function taskById(topic, id) {
+    for (var i = 0; i < topic.tasks.length; i++) if (topic.tasks[i].id === id) return topic.tasks[i];
+    return null;
+  }
+
+  function visibleTasks(topic) {
+    var order = (state.orderTopic === topic.id && state.order.length)
+      ? state.order
+      : topic.tasks.map(function (t) { return t.id; });
+    var out = [];
+    for (var i = 0; i < order.length; i++) {
+      var t = taskById(topic, order[i]);
+      if (!t) continue;
+      if (state.filter === 'solved' && !Storage.isSolved(t.id)) continue;
+      if (state.filter === 'unsolved' && Storage.isSolved(t.id)) continue;
+      out.push(t);
+    }
+    return out;
+  }
+
   function statusLabel(taskId) {
     var s = Storage.getState(taskId);
     if (s.solved && s.hinted) return '✨ решена с подсказкой';
@@ -159,11 +181,7 @@ function renderTopic() {
       return '<button class="chip' + (state.filter === f.id ? ' active' : '') + '" data-filter="' + f.id + '">' + f.label + '</button>';
     }).join('');
 
-    var tasks = topic.tasks.filter(function (t) {
-      if (state.filter === 'solved') return Storage.isSolved(t.id);
-      if (state.filter === 'unsolved') return !Storage.isSolved(t.id);
-      return true;
-    });
+    var tasks = visibleTasks(topic);
 
     $('#task-list').innerHTML = tasks.map(function (t, i) {
       var st = statusLabel(t.id);
@@ -303,6 +321,7 @@ function debounce(fn, ms) {
       Storage.setSolved(task.id, true);
       if ((state.hintsCount[task.id] || 0) > 0) Storage.setHinted(task.id, true);
       updateTaskStatus();
+      renderGlobalProgress();
     }
   }
 
@@ -348,10 +367,14 @@ function debounce(fn, ms) {
       $('#play-area').appendChild(btnPlay);
     }
 
-    state.hintsCount[task.id] = 0;
-    $('#hints-block').innerHTML = '';
-    $('#btn-hint').disabled = false;
-    $('#btn-hint').textContent = '💡 Показать подсказку';
+    if (typeof state.hintsCount[task.id] !== 'number') state.hintsCount[task.id] = 0;
+    var hc = state.hintsCount[task.id];
+    var hints = task.hints || [];
+    $('#hints-block').innerHTML = hints.slice(0, hc).map(function (h) {
+      return '<div class="hint">💡 ' + esc(h) + '</div>';
+    }).join('');
+    $('#btn-hint').disabled = hc >= hints.length && hints.length > 0;
+    $('#btn-hint').textContent = (hc >= hints.length && hints.length) ? 'Подсказок больше нет' : '💡 Показать подсказку';
     $('#results-card').classList.add('hidden');
 
     renderTaskAnswer($('#answer-area'), task);
@@ -384,6 +407,7 @@ function debounce(fn, ms) {
       (task.solutionNote ? '<div class="solution-note">' + esc(task.solutionNote) + '</div>' : '');
     $('#results-card').classList.remove('hidden');
     updateTaskStatus();
+    renderGlobalProgress();
   }
 
   /* ---------- Модалки ---------- */
@@ -434,7 +458,15 @@ function debounce(fn, ms) {
       if (state.orderTopic !== tid) resetOrder(topic);
       state.taskId = tkid;
       state.index = state.order.indexOf(tkid);
-      if (state.index < 0) { state.index = 0; state.taskId = state.order[0]; }
+      if (state.index < 0) {
+        var fallback = state.order[0];
+        if (fallback && fallback !== tkid) {
+          location.replace('#task-' + tid + '/' + fallback);
+          return;
+        }
+        state.index = 0;
+        state.taskId = fallback || tkid;
+      }
       showView('task');
       showTask();
     } else if (h.indexOf('#t-') === 0) {
@@ -474,16 +506,22 @@ function debounce(fn, ms) {
     });
     $('#btn-shuffle-task').addEventListener('click', function () {
       var topic = currentTopic();
-      if (!topic || topic.tasks.length < 2) return;
+      if (!topic) return;
+      var vis = visibleTasks(topic);
+      if (vis.length < 2) return;
       var idx;
-      do { idx = Math.floor(Math.random() * topic.tasks.length); } while (idx === state.index);
-      location.hash = '#task-' + state.topicId + '/' + state.order[idx];
+      do { idx = Math.floor(Math.random() * vis.length); } while (vis[idx].id === state.taskId);
+      location.hash = '#task-' + state.topicId + '/' + vis[idx].id;
     });
     $('#btn-next-task').addEventListener('click', function () {
       var topic = currentTopic();
       if (!topic) return;
-      state.index = (state.index + 1) % state.order.length;
-      location.hash = '#task-' + state.topicId + '/' + state.order[state.index];
+      var vis = visibleTasks(topic);
+      if (!vis.length) return;
+      var pos = -1;
+      for (var i = 0; i < vis.length; i++) if (vis[i].id === state.taskId) { pos = i; break; }
+      var next = vis[(pos + 1) % vis.length];
+      location.hash = '#task-' + state.topicId + '/' + next.id;
     });
 
     $('#btn-check').addEventListener('click', checkCurrent);

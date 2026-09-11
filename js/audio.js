@@ -25,19 +25,20 @@ var Audio = (function () {
     if (ctx) { try { ctx.close(); } catch (e) {} ctx = null; }
   }
 
-  /* Попытаться «разбудить» контекст: без resume autoplay-политика
-     оставляет его в состоянии 'suspended' и звука нет. */
+  /* «Разбудить» контекст и дождаться resume — иначе тон ставится в очередь,
+     пока state ещё suspended, и на телефоне звука нет. */
   function resumeCtx() {
     var c = getCtx();
-    if (!c) return;
-    if (c.state === 'suspended') {
+    if (!c) return Promise.resolve(null);
+    if (c.state === 'suspended' && c.resume) {
       try {
-        var p = c.resume ? c.resume() : null;
+        var p = c.resume();
         if (p && typeof p.then === 'function') {
-          p.catch(function () {});
+          return p.then(function () { return c; }).catch(function () { return c; });
         }
       } catch (e) {}
     }
+    return Promise.resolve(c);
   }
 
   function freqFromMidi(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
@@ -75,16 +76,13 @@ var Audio = (function () {
     var c = getCtx();
     if (!c || !Array.isArray(notes) || !notes.length) return false;
     opts = opts || {};
-    resumeCtx();
-    var ok = true;
+    var scheduled = 0;
     var t0 = c.currentTime + 0.03;
     try {
       if (opts.simult) {
         for (var i = 0; i < notes.length; i++) {
           var f = freq(notes[i]);
-          if (f) {
-            if (!tone(f, t0, (opts.dur || 0.9) * 1.6, 0.2)) ok = false;
-          }
+          if (f && tone(f, t0, (opts.dur || 0.9) * 1.6, 0.2)) scheduled++;
         }
       } else {
         var gap = opts.gap || 0.2;
@@ -92,15 +90,15 @@ var Audio = (function () {
         for (var j = 0; j < notes.length; j++) {
           var fj = freq(notes[j]);
           if (fj) {
-            if (!tone(fj, t0, dur, 0.2)) ok = false;
+            if (tone(fj, t0, dur, 0.2)) scheduled++;
             t0 += gap;
           }
         }
       }
     } catch (e) {
-      ok = false;
+      return false;
     }
-    return ok;
+    return scheduled > 0;
   }
 
   function schedule(spec) {
@@ -109,30 +107,37 @@ var Audio = (function () {
     if (spec.chord) return playNotes(spec.chord, { simult: true, dur: 1.0 });
     if (spec.scale) return playNotes(spec.scale, { gap: 0.22, dur: 0.55 });
     if (spec.notes) return playNotes(spec.notes, { gap: 0.2, dur: 0.5 });
+    if (spec.click) {
+      var bpm = spec.click.bpm || 80;
+      var beats = spec.click.beats || 4;
+      var names = [];
+      for (var k = 0; k < beats; k++) names.push(k === 0 ? 'C6' : 'G5');
+      return playNotes(names, { gap: 60 / bpm, dur: 0.08 });
+    }
     return false;
   }
 
-  /* Универсальный вход: {note} | {interval} | {chord} | {scale} | {notes}. */
+  /* Универсальный вход: {note} | {interval} | {chord} | {scale} | {notes} | {click}.
+     Возвращает Promise<boolean> (совместимо с .then). */
   function play(spec) {
-    if (!spec || !supportedFlag) return false;
-    if (!getCtx()) return false;
-    resumeCtx();
-    var ok = schedule(spec);
-
-    /* Если контекст «застрял» в suspended (мобильные устройства и строгая
-       автоплей-политика), создаём новый AudioContext и пробуем ещё раз —
-       свежий контекст почти всегда создаётся уже «проснувшимся» внутри клика. */
-    if (!ok) {
+    if (!spec || !supportedFlag) return Promise.resolve(false);
+    if (!getCtx()) return Promise.resolve(false);
+    function runOnce() {
+      return resumeCtx().then(function (c) {
+        if (!c) return false;
+        return schedule(spec);
+      });
+    }
+    return runOnce().then(function (ok) {
+      if (ok) return true;
       var c = getCtx();
       if (c && c.state === 'suspended') {
         dropCtx();
-        if (getCtx()) {
-          resumeCtx();
-          ok = schedule(spec);
-        }
+        if (!getCtx()) return false;
+        return runOnce();
       }
-    }
-    return ok;
+      return false;
+    });
   }
 
   return {
