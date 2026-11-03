@@ -113,5 +113,19 @@ TasksDB[TasksDB.length - 1].tasks.push(
       answer: 0,
       hints: ['E-форма копирует открытый аккорд Em/E'],
       solution: 'В E-форме корень на 6-й струне.'
+    },
+    { id: 'ch-16', title: 'C в A-форме целиком', difficulty: 3, kind: 'fretboard',
+      question: 'Отметьте аккорд C major в A-форме: баррэ на 3-м ладу, корень на 5-й струне. Струны 1–5, 6-ю не играем.',
+      board: [{ string: 5, fret: 3 }, { string: 4, fret: 5 }, { string: 3, fret: 5 }, { string: 2, fret: 5 }, { string: 1, fret: 3 }],
+      hints: ['Открытый A: x02220 — сдвиньте всё на 3 лада', 'Баррэ на 3-м, три ноты на 5-м ладу'],
+      play: { chord: ['C3', 'G3', 'C4', 'E4', 'G4'] },
+      solution: 'x35553: C(5-я, 3) G(4-я, 5) C(3-я, 5) E(2-я, 5) G(1-я, 3).'
+    },
+    { id: 'ch-17', title: 'G в E-форме целиком', difficulty: 2, kind: 'fretboard',
+      question: 'Отметьте аккорд G major в E-форме: баррэ на 3-м ладу, все 6 струн.',
+      board: [{ string: 6, fret: 3 }, { string: 5, fret: 5 }, { string: 4, fret: 5 }, { string: 3, fret: 4 }, { string: 2, fret: 3 }, { string: 1, fret: 3 }],
+      hints: ['Открытый E: 022100 — сдвиньте всё на 3 лада'],
+      play: { chord: ['G2', 'D3', 'G3', 'B3', 'D4', 'G4'] },
+      solution: '355433: G D G B D G.'
     }
 );

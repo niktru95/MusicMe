@@ -124,5 +124,42 @@ TasksDB[TasksDB.length - 1].tasks.push(
       play: { interval: ['C4', 'G4'] },
       hints: ['Семь полутонов', 'Вспомните таблицу интервалов'],
       solution: 'C—G = чистая квинта (7 полутонов). На гитаре это power chord: корень и квинта без терции.'
+    },
+    { id: 'it-gen', title: '🎲 Тренировка: нота через интервал', difficulty: 2, kind: 'text',
+      generate: function () {
+        return retry(function () {
+          var root = pick(['C', 'D', 'E', 'F', 'G', 'A', 'B', 'Bb', 'Eb', 'F#']);
+          var iv = pick(INTERVALS);
+          var note = spellUp(root, iv.steps, iv.semis);
+          if (!note) return null;
+          return {
+            question: 'Какая нота на ' + iv.acc + ' выше ' + root + '?',
+            accept: [note.toLowerCase()],
+            hints: [iv.name + ' = ' + iv.semis + ' полутонов', 'Отсчитайте ' + iv.semis + ' ладов вверх по одной струне от ' + root],
+            play: { interval: voiced([root, note]) },
+            solution: root + ' + ' + iv.name + ' (' + iv.semis + ' пт.) = ' + note + '.'
+          };
+        });
+      }
+    },
+    { id: 'it-gen2', title: '🎲 Тренировка: назовите интервал', difficulty: 2, kind: 'choice',
+      generate: function () {
+        return retry(function () {
+          var root = pick(['C', 'D', 'E', 'F', 'G', 'A', 'B', 'Bb', 'Eb']);
+          var iv = pick(INTERVALS.slice(0, 11));
+          var note = spellUp(root, iv.steps, iv.semis);
+          if (!note) return null;
+          var others = INTERVALS.filter(function (x) { return x !== iv; });
+          var opts = [iv.name];
+          while (opts.length < 4) { var o = pick(others).name; if (opts.indexOf(o) < 0) opts.push(o); }
+          return {
+            question: 'Какой интервал от ' + root + ' вверх до ' + note + '?',
+            options: opts, answer: 0,
+            hints: ['Посчитайте полутоны от ' + root + ' до ' + note],
+            play: { interval: voiced([root, note]) },
+            solution: root + '–' + note + ' = ' + iv.semis + ' полутонов, ' + iv.name + '.'
+          };
+        });
+      }
     }
 );

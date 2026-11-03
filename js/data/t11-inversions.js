@@ -121,6 +121,13 @@ TasksDB.push({
       hints: ['Терция Em = G'],
       play: { note: 'G2' },
       solution: 'Em/G. Бас G — 3-й лад 6-й, верх может остаться как открытый Em.'
+    },
+    { id: 'inv-16', title: 'Трезвучие на 3–2–1', difficulty: 3, kind: 'fretboard',
+      question: 'Отметьте C major в основном виде на струнах 3–2–1 (тоника на 3-й струне, 5-й лад).',
+      board: [{ string: 3, fret: 5 }, { string: 2, fret: 5 }, { string: 1, fret: 3 }],
+      hints: ['C на 3-й струне — 5-й лад', 'Дальше E на 2-й и G на 1-й, рядом по ладам'],
+      play: { chord: ['C4', 'E4', 'G4'] },
+      solution: '5–5–3: C E G. Сдвиньте форму на 2 лада вверх — получите D.'
     }
   ]
 });

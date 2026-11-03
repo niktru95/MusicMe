@@ -133,5 +133,12 @@ TasksDB[TasksDB.length - 1].tasks.push(
       hints: ['Открытая 6-я = E, открытый аккорд E'],
       play: { note: 'E2' },
       solution: 'I–IV–V в A: A, D, E. Доминанта E — открытая 6-я, аккорд который уже играете.'
+    },
+    { id: 'ci-18', title: 'Транспонирование в E♭', difficulty: 3, kind: 'text',
+      question: 'Транспонируйте G – D – Em – C (I–V–vi–IV) в тональность Eb major. Запишите аккорды через пробел.',
+      accept: ['eb bb cm ab', 'd# a# d#m g#'],
+      hints: ['Те же ступени: I, V, vi, IV в Eb', 'Eb major: Eb F G Ab Bb C D'],
+      play: { chords: [['D#3', 'G3', 'A#3'], ['A#2', 'D3', 'F3'], ['C3', 'D#3', 'G3'], ['G#2', 'C3', 'D#3']] },
+      solution: 'Eb – Bb – Cm – Ab. На гитаре удобно с каподастром на 1-м ладу и формами D – A – Bm – G.'
     }
 );

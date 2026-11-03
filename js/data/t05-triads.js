@@ -135,5 +135,22 @@ TasksDB[TasksDB.length - 1].tasks.push(
       hints: ['D + 7 полутонов = A'],
       play: { note: 'A3' },
       solution: 'Квинта D — A, на 4-й струне 7-й лад. В открытом D эта же A (A3) звучит на 3-й струне, 2-й лад.'
+    },
+    { id: 'tr-gen', title: '🎲 Тренировка: ноты трезвучий', difficulty: 2, kind: 'text',
+      generate: function () { return chordNotesTask(['', 'm', 'dim', 'aug']); }
+    },
+    { id: 'tr-18', title: 'F# major', difficulty: 3, kind: 'text',
+      question: 'Какие ноты в аккорде F#?\n\nЗапишите через пробел от тоники.',
+      accept: ['f# a# c#'],
+      hints: ['Большая терция от F# — 4 полутона', 'Каждая нота трезвучия — через букву: F, A, C'],
+      play: { chord: ['F#3', 'A#3', 'C#4'] },
+      solution: 'F# = F#, A#, C#. Буквы идут через одну (F–A–C), поэтому A#, а не Bb.'
+    },
+    { id: 'tr-19', title: 'B♭ minor', difficulty: 3, kind: 'text',
+      question: 'Какие ноты в аккорде Bbm?\n\nЗапишите через пробел от тоники.',
+      accept: ['bb db f'],
+      hints: ['Малая терция от Bb — 3 полутона', 'Буквы через одну: B, D, F'],
+      play: { chord: ['A#3', 'C#4', 'F4'] },
+      solution: 'Bbm = Bb, Db, F.'
     }
 );

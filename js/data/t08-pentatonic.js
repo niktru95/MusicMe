@@ -119,5 +119,13 @@ TasksDB[TasksDB.length - 1].tasks.push(
       answer: 0,
       hints: ['По-гречески «пья» — пять'],
       solution: 'Пента — «пять» по-гречески: 5 нот.'
+    },
+    { id: 'pe-16', title: 'Первый бокс целиком', difficulty: 3, kind: 'fretboard', range: [5, 8],
+      question: 'Отметьте первый бокс A минорной пентатоники: все ноты A C D E G на всех струнах в ладах 5–8.',
+      board: [{ string: 6, fret: 5 }, { string: 6, fret: 8 }, { string: 5, fret: 5 }, { string: 5, fret: 7 }, { string: 4, fret: 5 }, { string: 4, fret: 7 },
+              { string: 3, fret: 5 }, { string: 3, fret: 7 }, { string: 2, fret: 5 }, { string: 2, fret: 8 }, { string: 1, fret: 5 }, { string: 1, fret: 8 }],
+      hints: ['По две ноты на каждой струне', 'Лады 5–7 везде, кроме 6-й, 2-й и 1-й струн — там 5–8'],
+      play: { scale: ['A2', 'C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5'] },
+      solution: '6-я: 5, 8 · 5-я: 5, 7 · 4-я: 5, 7 · 3-я: 5, 7 · 2-я: 5, 8 · 1-я: 5, 8.'
     }
 );

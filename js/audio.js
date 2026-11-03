@@ -11,6 +11,7 @@
 var Synth = (function () {
   var ctx = null;
   var active = [];  /* звучащие осцилляторы — глушим их перед новым примером */
+  var startedAt = 0;  /* performance.now() первого звука последнего примера (для тап-задач) */
   var supportedFlag = !!(window.AudioContext || window.webkitAudioContext);
 
   function getCtx() {
@@ -49,19 +50,33 @@ var Synth = (function () {
     return m >= 0 ? freqFromMidi(m) : null;
   }
 
-  function tone(f, t0, dur, vol) {
+  /* pluck — «щипок струны»: пила через закрывающийся фильтр и быстрый спад громкости.
+     Без pluck — синус (метроном). */
+  function tone(f, t0, dur, vol, pluck) {
     var c = getCtx();
     if (!c || !isFinite(f)) return false;
     try {
       var o = c.createOscillator();
       var g = c.createGain();
-      o.type = 'sine';
       o.frequency.value = f;
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.linearRampToValueAtTime(vol, t0 + 0.014);
-      g.gain.setValueAtTime(vol, t0 + Math.max(0.06, dur - 0.08));
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g);
+      if (pluck) {
+        o.type = 'sawtooth';
+        var lp = c.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(Math.min(f * 8, 12000), t0);
+        lp.frequency.exponentialRampToValueAtTime(f * 1.5, t0 + dur);
+        g.gain.linearRampToValueAtTime(vol * 0.8, t0 + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(lp);
+        lp.connect(g);
+      } else {
+        o.type = 'sine';
+        g.gain.linearRampToValueAtTime(vol, t0 + 0.014);
+        g.gain.setValueAtTime(vol, t0 + Math.max(0.06, dur - 0.08));
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g);
+      }
       g.connect(c.destination);
       o.start(t0);
       o.stop(t0 + dur + 0.03);
@@ -79,12 +94,13 @@ var Synth = (function () {
     if (!c || !Array.isArray(notes) || !notes.length) return false;
     opts = opts || {};
     var scheduled = 0;
-    var t0 = c.currentTime + 0.03;
+    var t0 = c.currentTime + 0.03 + (opts.at || 0);
+    var pluck = opts.pluck !== false;
     try {
       if (opts.simult) {
         for (var i = 0; i < notes.length; i++) {
           var f = freq(notes[i]);
-          if (f && tone(f, t0, (opts.dur || 0.9) * 1.6, 0.2)) scheduled++;
+          if (f && tone(f, t0 + i * 0.015, (opts.dur || 0.9) * 1.6, 0.2, pluck)) scheduled++;
         }
       } else {
         var gap = opts.gap || 0.2;
@@ -92,7 +108,7 @@ var Synth = (function () {
         for (var j = 0; j < notes.length; j++) {
           var fj = freq(notes[j]);
           if (fj) {
-            if (tone(fj, t0, dur, 0.2)) scheduled++;
+            if (tone(fj, t0, dur, 0.2, pluck)) scheduled++;
             t0 += gap;
           }
         }
@@ -108,26 +124,41 @@ var Synth = (function () {
     active = [];
   }
 
+  /* Метроном: beats щелчков, sub щелчков на долю (2 = восьмые), swing — вторая восьмая на 2/3 доли (шаффл) */
+  function clicks(spec) {
+    var c = getCtx();
+    var beat = 60 / (spec.bpm || 80);
+    var beats = spec.beats || 4;
+    var sub = spec.sub || 1;
+    var t0 = c.currentTime + 0.03;
+    var scheduled = 0;
+    for (var k = 0; k < beats; k++) {
+      var part = k % sub;
+      var off = Math.floor(k / sub) * beat + (part ? (spec.swing && sub === 2 ? 2 / 3 : part / sub) * beat : 0);
+      if (tone(freq(k === 0 ? 'C6' : part ? 'D5' : 'G5'), t0 + off, 0.08, 0.2, false)) scheduled++;
+    }
+    return scheduled > 0;
+  }
+
   function schedule(spec) {
     stopAll();
+    var c = getCtx();
+    startedAt = performance.now() + 30 + ((c && c.outputLatency) || 0) * 1000;
+    if (spec.chords) {
+      /* последовательность аккордов: [[...], [...]] */
+      return spec.chords.map(function (ch, i) { return playNotes(ch, { simult: true, dur: 0.75, at: i * 1.15 }); }).some(Boolean);
+    }
+    if (spec.harmonic) return playNotes(spec.harmonic, { simult: true, dur: 1.0 });
     if (spec.note) return playNotes([spec.note], { simult: true, dur: 0.9 });
     if (spec.interval) return playNotes(spec.interval, { gap: 0.34, dur: 0.62 });
     if (spec.chord) return playNotes(spec.chord, { simult: true, dur: 1.0 });
     if (spec.scale) return playNotes(spec.scale, { gap: 0.22, dur: 0.55 });
     if (spec.notes) return playNotes(spec.notes, { gap: 0.2, dur: 0.5 });
-    if (spec.click) {
-      /* sub — щелчков на долю: 2 = восьмые (доли громче, «и» тише по высоте) */
-      var bpm = spec.click.bpm || 80;
-      var beats = spec.click.beats || 4;
-      var sub = spec.click.sub || 1;
-      var names = [];
-      for (var k = 0; k < beats; k++) names.push(k === 0 ? 'C6' : k % sub === 0 ? 'G5' : 'D5');
-      return playNotes(names, { gap: 60 / bpm / sub, dur: 0.08 });
-    }
+    if (spec.click) return clicks(spec.click);
     return false;
   }
 
-  /* Универсальный вход: {note} | {interval} | {chord} | {scale} | {notes} | {click: {bpm, beats, sub}}.
+  /* Универсальный вход: {note} | {interval} | {harmonic} | {chord} | {chords} | {scale} | {notes} | {click: {bpm, beats, sub, swing}}.
      Возвращает Promise<boolean> (совместимо с .then). */
   function play(spec) {
     if (!spec || !supportedFlag) return Promise.resolve(false);
@@ -156,6 +187,8 @@ var Synth = (function () {
     freq: freq,
     freqFromMidi: freqFromMidi,
     supported: function () { return supportedFlag; },
+    stop: stopAll,
+    startedAt: function () { return startedAt; },
     resume: function () { resumeCtx(); }
   };
 })();

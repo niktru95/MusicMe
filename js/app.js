@@ -33,12 +33,11 @@
   /* Сдвинуть все ноты примера на k полутонов (для слуховых задач со случайной тоникой) */
   function transposeSpec(spec, k) {
     if (!spec || !k) return spec;
-    var mv = function (n) { return midiName(noteMidi(n) + k); };
+    var mv = function (v) {
+      return typeof v === 'string' ? midiName(noteMidi(v) + k) : Array.isArray(v) ? v.map(mv) : v;
+    };
     var out = {};
-    Object.keys(spec).forEach(function (key) {
-      var v = spec[key];
-      out[key] = typeof v === 'string' ? mv(v) : Array.isArray(v) ? v.map(mv) : v;
-    });
+    Object.keys(spec).forEach(function (key) { out[key] = mv(spec[key]); });
     return out;
   }
 
@@ -62,13 +61,7 @@
     return {
       id: topic.id, title: topic.title, icon: topic.icon, description: topic.description,
       theory: topic.theory,
-      tasks: topic.tasks.map(function (t) {
-        return {
-          id: t.id, title: t.title, difficulty: t.difficulty, question: t.question, kind: t.kind,
-          accept: t.accept, options: t.options, answer: t.answer, board: t.board,
-          play: t.play, randomRoot: t.randomRoot, hints: t.hints || [], solution: t.solution, solutionNote: t.solutionNote
-        };
-      })
+      tasks: topic.tasks.map(function (t) { return Object.assign({}, t, { hints: t.hints || [] }); })
     };
   });
 
@@ -91,8 +84,24 @@
     filter: 'all',
     hintsCount: {},
     sel: {},
-    perm: {}  /* порядок вариантов в задачах с выбором: перемешивается один раз за сессию */
+    perm: {},  /* порядок вариантов в задачах с выбором: перемешивается один раз за сессию */
+    gen: {},   /* текущий вариант задач-генераторов */
+    taps: {},
+    tapTimer: null
   };
+
+  /* Ошибка: последний ответ неверный или решение подсмотрено, а сами не решили */
+  function hasError(id) {
+    var s = Progress.getState(id);
+    return !!(s.lastWrong || (s.revealed && !s.solved));
+  }
+
+  /* Точность по теме: верных проверок / всех проверок, null — ещё не отвечали */
+  function accuracy(topic) {
+    var a = 0, c = 0;
+    topic.tasks.forEach(function (t) { var s = Progress.getState(t.id); a += s.attempts || 0; c += s.correct || 0; });
+    return a ? Math.round(c / a * 100) : null;
+  }
 
   /* ---------- Прогресс ---------- */
   function totals() {
@@ -123,6 +132,8 @@
     $('#topics-grid').innerHTML = SessionDB.map(function (topic) {
       var solved = topic.tasks.filter(function (t) { return Progress.isSolved(t.id); }).length;
       var pct = Math.round(solved / topic.tasks.length * 100);
+      var acc = accuracy(topic);
+      var errs = topic.tasks.filter(function (t) { return hasError(t.id); }).length;
       return '<a class="topic-card" href="#t-' + topic.id + '">' +
         '<div class="topic-icon">' + topic.icon + '</div>' +
         '<div style="flex:1">' +
@@ -131,13 +142,27 @@
         '<div class="topic-progress-row">' +
         '<div class="prog-bar"><div class="prog-fill" style="width:' + pct + '%"></div></div>' +
         '<span>' + solved + ' / ' + topic.tasks.length + '</span>' +
-        '</div></div></a>';
+        '</div>' +
+        (acc !== null || errs ? '<div class="topic-stats">' + (acc !== null ? 'точность ' + acc + '%' : '') + (errs ? (acc !== null ? ' · ' : '') + '⚠️ ошибок: ' + errs : '') + '</div>' : '') +
+        '</div></a>';
     }).join('');
     renderGlobalProgress();
   }
 
   function currentTopic() { return getTopic(state.topicId); }
-  function currentTask() { return getTask(state.topicId, state.taskId); }
+  /* Для генератора возвращает текущий вариант (создаёт новый, если его нет) */
+  function currentTask() {
+    var t = getTask(state.topicId, state.taskId);
+    if (!t || !t.generate) return t;
+    if (!state.gen[t.id]) {
+      state.gen[t.id] = Object.assign({}, t, t.generate());
+      delete state.perm[t.id];
+      state.sel[t.id] = [];
+      state.hintsCount[t.id] = 0;
+      Progress.setAnswer(t.id, null);
+    }
+    return state.gen[t.id];
+  }
 
   function taskById(topic, id) {
     for (var i = 0; i < topic.tasks.length; i++) if (topic.tasks[i].id === id) return topic.tasks[i];
@@ -154,6 +179,7 @@
       if (!t) continue;
       if (state.filter === 'solved' && !Progress.isSolved(t.id)) continue;
       if (state.filter === 'unsolved' && Progress.isSolved(t.id)) continue;
+      if (state.filter === 'errors' && !hasError(t.id)) continue;
       out.push(t);
     }
     return out;
@@ -184,12 +210,13 @@ function renderTopic() {
     var pct = Math.round(solved / topic.tasks.length * 100);
     $('#topic-progress').innerHTML =
       '<div class="prog-bar wide"><div class="prog-fill" style="width:' + pct + '%"></div></div>' +
-      '<span>' + solved + ' / ' + topic.tasks.length + ' решено</span>';
+      '<span>' + solved + ' / ' + topic.tasks.length + ' решено' + (accuracy(topic) !== null ? ' · точность ' + accuracy(topic) + '%' : '') + '</span>';
 
     var filters = [
       { id: 'all', label: 'Все' },
       { id: 'unsolved', label: 'Не решённые' },
-      { id: 'solved', label: 'Решённые' }
+      { id: 'solved', label: 'Решённые' },
+      { id: 'errors', label: '⚠️ С ошибками' }
     ];
     $('#topic-filters').innerHTML = filters.map(function (f) {
       return '<button class="chip' + (state.filter === f.id ? ' active' : '') + '" data-filter="' + f.id + '">' + f.label + '</button>';
@@ -203,6 +230,7 @@ function renderTopic() {
         return '<span class="diff-dot" style="background:' + (n <= t.difficulty ? 'var(--accent)' : 'var(--border)') + '"></span>';
       }).join('');
       var icon = st.indexOf('✅') >= 0 ? '✅' : st.indexOf('✨') >= 0 ? '✨' : st.indexOf('📖') >= 0 ? '📖' : st.indexOf('💡') >= 0 ? '💡' : '';
+      if (hasError(t.id)) { icon = '⚠️'; st = 'последний ответ неверный'; }
       return '<div class="task-item" data-goto="#task-' + state.topicId + '/' + t.id + '">' +
         '<div class="task-num">' + (i + 1) + '</div>' +
         '<div class="task-item-title">' + esc(t.title) + '</div>' +
@@ -303,6 +331,35 @@ function renderTopic() {
           all[k].setAttribute('aria-pressed', on);
         }
       };
+    } else if (task.kind === 'tap') {
+      var beat = 60000 / task.tap.bpm;
+      var clicks = 4 + Math.ceil(task.tap.pattern[task.tap.pattern.length - 1] + 1);
+      container.innerHTML =
+        '<div class="tap-area"><button class="btn" id="tap-start">▶ Старт</button>' +
+        '<button class="btn primary tap-btn" id="tap-btn" disabled>👆 Тап</button></div>' +
+        '<div class="answer-input-hint" id="tap-info">' + task.tap.bpm + ' BPM · 4 щелчка отсчёта, затем ' + task.tap.pattern.length + ' нажатий. Проверка — сама, после последнего щелчка.</div>';
+      var tapBtn = container.querySelector('#tap-btn');
+      var tap = function () {
+        var arr = state.taps[task.id];
+        if (!arr) return;
+        arr.push(performance.now() - Synth.startedAt());
+        $('#tap-info').textContent = 'Нажатий: ' + arr.length + ' из ' + task.tap.pattern.length;
+      };
+      tapBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); tap(); });
+      tapBtn.addEventListener('keydown', function (e) {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) tap(); }
+      });
+      container.querySelector('#tap-start').addEventListener('click', function () {
+        clearTimeout(state.tapTimer);
+        state.taps[task.id] = [];
+        tapBtn.disabled = false;
+        tapBtn.focus();
+        tryPlay({ click: { bpm: task.tap.bpm, beats: clicks } }, container);
+        state.tapTimer = setTimeout(function () {
+          tapBtn.disabled = true;
+          if (state.taskId === task.id) checkCurrent();
+        }, (clicks + 1) * beat);
+      });
     } else if (task.kind === 'fretboard') {
       var savedCells = Progress.getAnswer(task.id);
       if (!Array.isArray(savedCells)) savedCells = [];
@@ -323,6 +380,7 @@ function renderTopic() {
       return isNaN(idx) ? -1 : idx;
     }
     if (task.kind === 'fretboard') return state.sel[task.id] || [];
+    if (task.kind === 'tap') return state.taps[task.id] || [];
     return '';
   }
 
@@ -336,6 +394,9 @@ function renderTopic() {
       return;
     }
     var res = Runner.check(task, answer);
+    var st = Progress.getState(task.id);
+    Progress.setState(task.id, { attempts: (st.attempts || 0) + 1, correct: (st.correct || 0) + (res.pass ? 1 : 0), lastWrong: !res.pass });
+    if (res.pass && task.generate) res.message += ' Жмите «🔁 Новый вариант», чтобы потренироваться ещё.';
     renderResult(task, res);
     if (res.pass) {
       Progress.setSolved(task.id, true);
@@ -377,6 +438,8 @@ function renderTopic() {
     $('#task-title').textContent = task.title;
     $('#task-question').innerHTML = fmtText(task.question);
     $('#task-status').textContent = statusLabel(task.id);
+    $('#btn-regen').classList.toggle('hidden', !task.generate);
+    clearTimeout(state.tapTimer);
 
     $('#play-area').innerHTML = '';
     var shift = task.randomRoot ? Math.floor(Math.random() * 12) - 5 : 0;
@@ -561,10 +624,16 @@ function renderTopic() {
       if (!task) return;
       Progress.setAnswer(task.id, task.kind === 'choice' ? null : (task.kind === 'fretboard' ? [] : ''));
       state.sel[task.id] = [];
+      state.taps[task.id] = null;
+      clearTimeout(state.tapTimer);
       $('#results-card').classList.add('hidden');
       renderTaskAnswer($('#answer-area'), task);
     });
     $('#btn-hint').addEventListener('click', function () { showNextHint(currentTask()); });
+    $('#btn-regen').addEventListener('click', function () {
+      delete state.gen[state.taskId];
+      showTask();
+    });
     $('#btn-solution').addEventListener('click', function () {
       openModal('Показать решение?', 'Задача не будет засчитана как решённая, пока вы не ответите сами.', function () {
         showSolution(currentTask());
