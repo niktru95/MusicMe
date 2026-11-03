@@ -1,5 +1,5 @@
 /* storage.js — сохранение прогресса и последних ответов в localStorage */
-var Storage = {
+var Progress = {
   KEY_PROGRESS: 'mt.progress',
   KEY_ANSWERS: 'mt.answers',
 
@@ -41,8 +41,16 @@ var Storage = {
     this._write(this.KEY_ANSWERS, d);
   },
 
+  /* Подписи нот на грифе (по умолчанию скрыты) */
+  getShowNotes: function () {
+    try { return localStorage.getItem('mt.showNotes') === '1'; } catch (e) { return false; }
+  },
+  setShowNotes: function (on) { this._write('mt.showNotes', on ? 1 : 0); },
+
   resetAll: function () {
-    localStorage.removeItem(this.KEY_PROGRESS);
-    localStorage.removeItem(this.KEY_ANSWERS);
+    try {
+      localStorage.removeItem(this.KEY_PROGRESS);
+      localStorage.removeItem(this.KEY_ANSWERS);
+    } catch (e) {}
   }
 };

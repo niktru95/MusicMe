@@ -66,9 +66,9 @@ TasksDB.push({
     },
     { id: 'tr-08', title: 'Ми минор на грифе', difficulty: 2, kind: 'fretboard',
       question: 'Отметьте аккорд E minor на 6-й струне (лады 0–12).\n\nE G B — тоника на открытой струне.',
-      board: [{ string: 6, fret: 0 }, { string: 6, fret: 3 }, { string: 6, fret: 7 }],
-      hints: ['Открытая 6-я струна = E — тоника; от неё найдите малую терцию и квинту'],
-      solution: 'Em на 6-й струне: E(0), G(3), B(7).'
+      board: [{ string: 6, fret: 0 }, { string: 6, fret: 3 }, { string: 6, fret: 7 }, { string: 6, fret: 12 }],
+      hints: ['Открытая 6-я струна = E — тоника; от неё найдите малую терцию и квинту', 'Не забудьте 12-й лад — там снова E'],
+      solution: 'Em на 6-й струне: E(0), G(3), B(7) и E(12) — тоника октавой выше.'
     }
   ]
 });
@@ -98,9 +98,9 @@ TasksDB[TasksDB.length - 1].tasks.push(
     },
     { id: 'tr-12', title: 'A major на 5-й струне', difficulty: 2, kind: 'fretboard',
       question: 'Отметьте аккорд A major на 5-й струне (лады 0–12).\n\nA C# E.',
-      board: [{ string: 5, fret: 0 }, { string: 5, fret: 4 }, { string: 5, fret: 7 }],
-      hints: ['Корень A = открытая 5-я струна; от него отложите большую терцию (4) и квинту (7)'],
-      solution: 'A major на 5-й струне: A(0), C#(4), E(7).'
+      board: [{ string: 5, fret: 0 }, { string: 5, fret: 4 }, { string: 5, fret: 7 }, { string: 5, fret: 12 }],
+      hints: ['Корень A = открытая 5-я струна; от него отложите большую терцию (4) и квинту (7)', 'Не забудьте 12-й лад — там снова A'],
+      solution: 'A major на 5-й струне: A(0), C#(4), E(7) и A(12) — корень октавой выше.'
     },
     { id: 'tr-13', title: 'Терция ля минора', difficulty: 1, kind: 'text',
       question: 'Какая нота — терция аккорда Am?',
@@ -134,6 +134,6 @@ TasksDB[TasksDB.length - 1].tasks.push(
       board: [{ string: 4, fret: 7 }],
       hints: ['D + 7 полутонов = A'],
       play: { note: 'A3' },
-      solution: 'Квинта D — A, на 4-й струне 7-й лад. В открытом D эту A обычно берут на 2-й струне, 2-й лад — тот же питч-класс.'
+      solution: 'Квинта D — A, на 4-й струне 7-й лад. В открытом D эта же A (A3) звучит на 3-й струне, 2-й лад.'
     }
 );

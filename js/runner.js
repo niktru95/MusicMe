@@ -2,39 +2,11 @@
    Проверяет ответ пользователя по формату задачи и возвращает результат. */
 var Runner = {
 
-  deepEqual: function (a, b) {
-    if (a === b) return true;
-    if (typeof a === 'number' && typeof b === 'number' && Number.isNaN(a) && Number.isNaN(b)) return true;
-    if (Array.isArray(a) && Array.isArray(b)) {
-      if (a.length !== b.length) return false;
-      for (var i = 0; i < a.length; i++) if (!this.deepEqual(a[i], b[i])) return false;
-      return true;
-    }
-    if (a && b && typeof a === 'object' && typeof b === 'object') {
-      var ka = Object.keys(a), kb = Object.keys(b);
-      if (ka.length !== kb.length) return false;
-      for (var j = 0; j < ka.length; j++) {
-        var k = ka[j];
-        if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
-        if (!this.deepEqual(a[k], b[k])) return false;
-      }
-      return true;
-    }
-    return false;
-  },
-
-  /* Сравнение массивов клеток грифа {string, fret} */
-  sameCells: function (a, b) {
-    if (!Array.isArray(a) || !Array.isArray(b)) return false;
-    if (a.length !== b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      var found = false;
-      for (var j = 0; j < b.length; j++) {
-        if (a[i].string === b[j].string && a[i].fret === b[j].fret) { found = true; break; }
-      }
-      if (!found) return false;
-    }
-    return true;
+  /* Клетки из a, которых нет в b */
+  cellsMissing: function (a, b) {
+    return a.filter(function (x) {
+      return !b.some(function (y) { return x.string === y.string && x.fret === y.fret; });
+    });
   },
 
   /* Основная проверка. answer: строка / индекс выбора / массив клеток грифа */
@@ -53,18 +25,18 @@ var Runner = {
     } else if (task.kind === 'fretboard') {
       var expected = task.board || [];
       var got = (answer || []).filter(function (c) { return c && typeof c.fret === 'number' && typeof c.string === 'number'; });
+      var missing = this.cellsMissing(expected, got).length;
+      var extra = this.cellsMissing(got, expected).length;
       res.expected = expected.map(function (c) { return c.string + ':' + c.fret; }).join(', ');
       res.actual = got.map(function (c) { return c.string + ':' + c.fret; }).join(', ');
-      res.pass = this.sameCells(expected, got);
-    }
-
-    if (task.kind === 'fretboard') {
+      res.pass = missing === 0 && extra === 0;
       res.message = res.pass
         ? 'Верно! Все нужные ноты отмечены.'
-        : 'Пока неверно — отмеченные клетки не совпадают с ответом.';
-    } else {
-      res.message = res.pass ? 'Верно!' : 'Пока неверно — попробуйте ещё раз.';
+        : 'Пока неверно — ' + [missing ? 'не хватает нот: ' + missing : '', extra ? 'лишних нот: ' + extra : ''].filter(Boolean).join(', ') + '.';
+      return res;
     }
+
+    res.message = res.pass ? 'Верно!' : 'Пока неверно — попробуйте ещё раз.';
     return res;
   }
 };

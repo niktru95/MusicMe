@@ -119,13 +119,13 @@ TasksDB[TasksDB.length - 1].tasks.push(
       hints: ['Он «вводит» в тонику', 'vii°-аккорд'],
       solution: 'vii° — вводный (уменьшённый) аккорд.'
     },
-    { id: 'ci-16', title: 'I–IV–V в G', difficulty: 2, kind: 'choice',
-      question: 'Какие аккорды — I, IV и V в тональности G major (открытые формы)?',
-      options: ['G, C, D', 'G, D, A', 'C, F, G', 'A, D, E'],
+    { id: 'ci-16', title: 'vi ступень в G', difficulty: 2, kind: 'choice',
+      question: 'Какой аккорд — vi ступень в тональности G major?',
+      options: ['Em', 'E', 'Bm', 'Am'],
       answer: 0,
-      hints: ['Гамма G: G A B C D… 1=G, 4=C, 5=D'],
-      play: { chord: ['G3', 'B3', 'D4'] },
-      solution: 'В G: тоника G, субдоминанта C, доминанта D. Три аккорда большинства песен у костра.'
+      hints: ['Гамма G: G A B C D E F#… 6-я ступень = E', 'Строчная vi — значит минор'],
+      play: { chord: ['E3', 'G3', 'B3'] },
+      solution: 'vi в G major — Em, относительный минор G. Отсюда ход G–Em–C–D.'
     },
     { id: 'ci-17', title: 'Доминанта A на грифе', difficulty: 2, kind: 'fretboard',
       question: 'В A major доминанта — E. Отметьте корень E на 6-й струне (открытая струна).',

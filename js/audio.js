@@ -8,8 +8,9 @@
    - если контекст так и не проснулся — создаём новый и пробуем ещё раз;
    - play() возвращает boolean, чтобы интерфейс мог показать внятное
      сообщение вместо тихого «ничего не произошло». */
-var Audio = (function () {
+var Synth = (function () {
   var ctx = null;
+  var active = [];  /* звучащие осцилляторы — глушим их перед новым примером */
   var supportedFlag = !!(window.AudioContext || window.webkitAudioContext);
 
   function getCtx() {
@@ -64,6 +65,7 @@ var Audio = (function () {
       g.connect(c.destination);
       o.start(t0);
       o.stop(t0 + dur + 0.03);
+      active.push(o);
       return true;
     } catch (e) {
       return false;
@@ -101,23 +103,31 @@ var Audio = (function () {
     return scheduled > 0;
   }
 
+  function stopAll() {
+    active.forEach(function (o) { try { o.stop(); } catch (e) {} });
+    active = [];
+  }
+
   function schedule(spec) {
+    stopAll();
     if (spec.note) return playNotes([spec.note], { simult: true, dur: 0.9 });
     if (spec.interval) return playNotes(spec.interval, { gap: 0.34, dur: 0.62 });
     if (spec.chord) return playNotes(spec.chord, { simult: true, dur: 1.0 });
     if (spec.scale) return playNotes(spec.scale, { gap: 0.22, dur: 0.55 });
     if (spec.notes) return playNotes(spec.notes, { gap: 0.2, dur: 0.5 });
     if (spec.click) {
+      /* sub — щелчков на долю: 2 = восьмые (доли громче, «и» тише по высоте) */
       var bpm = spec.click.bpm || 80;
       var beats = spec.click.beats || 4;
+      var sub = spec.click.sub || 1;
       var names = [];
-      for (var k = 0; k < beats; k++) names.push(k === 0 ? 'C6' : 'G5');
-      return playNotes(names, { gap: 60 / bpm, dur: 0.08 });
+      for (var k = 0; k < beats; k++) names.push(k === 0 ? 'C6' : k % sub === 0 ? 'G5' : 'D5');
+      return playNotes(names, { gap: 60 / bpm / sub, dur: 0.08 });
     }
     return false;
   }
 
-  /* Универсальный вход: {note} | {interval} | {chord} | {scale} | {notes} | {click}.
+  /* Универсальный вход: {note} | {interval} | {chord} | {scale} | {notes} | {click: {bpm, beats, sub}}.
      Возвращает Promise<boolean> (совместимо с .then). */
   function play(spec) {
     if (!spec || !supportedFlag) return Promise.resolve(false);

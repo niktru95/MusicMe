@@ -24,10 +24,22 @@
   /* Воспроизвести пример; при неудаче — показать внятное сообщение. */
   function tryPlay(spec, container) {
     if (!spec) return;
-    var result = Audio.play(spec);
+    var result = Synth.play(spec);
     if (result && typeof result.then === 'function') {
       result.then(function (ok) { if (!ok) audioWarn(container); });
     } else if (!result) audioWarn(container);
+  }
+
+  /* Сдвинуть все ноты примера на k полутонов (для слуховых задач со случайной тоникой) */
+  function transposeSpec(spec, k) {
+    if (!spec || !k) return spec;
+    var mv = function (n) { return midiName(noteMidi(n) + k); };
+    var out = {};
+    Object.keys(spec).forEach(function (key) {
+      var v = spec[key];
+      out[key] = typeof v === 'string' ? mv(v) : Array.isArray(v) ? v.map(mv) : v;
+    });
+    return out;
   }
 
   function shuffle(arr) {
@@ -54,7 +66,7 @@
         return {
           id: t.id, title: t.title, difficulty: t.difficulty, question: t.question, kind: t.kind,
           accept: t.accept, options: t.options, answer: t.answer, board: t.board,
-          play: t.play, hints: t.hints || [], solution: t.solution, solutionNote: t.solutionNote
+          play: t.play, randomRoot: t.randomRoot, hints: t.hints || [], solution: t.solution, solutionNote: t.solutionNote
         };
       })
     };
@@ -78,14 +90,15 @@
     index: 0,
     filter: 'all',
     hintsCount: {},
-    sel: {}
+    sel: {},
+    perm: {}  /* порядок вариантов в задачах с выбором: перемешивается один раз за сессию */
   };
 
   /* ---------- Прогресс ---------- */
   function totals() {
     var solved = 0, total = 0;
     SessionDB.forEach(function (topic) {
-      topic.tasks.forEach(function (task) { total++; if (Storage.isSolved(task.id)) solved++; });
+      topic.tasks.forEach(function (task) { total++; if (Progress.isSolved(task.id)) solved++; });
     });
     return { solved: solved, total: total };
   }
@@ -108,7 +121,7 @@
 
   function renderHome() {
     $('#topics-grid').innerHTML = SessionDB.map(function (topic) {
-      var solved = topic.tasks.filter(function (t) { return Storage.isSolved(t.id); }).length;
+      var solved = topic.tasks.filter(function (t) { return Progress.isSolved(t.id); }).length;
       var pct = Math.round(solved / topic.tasks.length * 100);
       return '<a class="topic-card" href="#t-' + topic.id + '">' +
         '<div class="topic-icon">' + topic.icon + '</div>' +
@@ -139,17 +152,18 @@
     for (var i = 0; i < order.length; i++) {
       var t = taskById(topic, order[i]);
       if (!t) continue;
-      if (state.filter === 'solved' && !Storage.isSolved(t.id)) continue;
-      if (state.filter === 'unsolved' && Storage.isSolved(t.id)) continue;
+      if (state.filter === 'solved' && !Progress.isSolved(t.id)) continue;
+      if (state.filter === 'unsolved' && Progress.isSolved(t.id)) continue;
       out.push(t);
     }
     return out;
   }
 
   function statusLabel(taskId) {
-    var s = Storage.getState(taskId);
+    var s = Progress.getState(taskId);
     if (s.solved && s.hinted) return '✨ решена с подсказкой';
     if (s.solved) return '✅ решена';
+    if (s.revealed) return '📖 решение показано';
     if (s.hinted) return '💡 подсказка';
     return '';
   }
@@ -166,7 +180,7 @@ function renderTopic() {
     $('#topic-title').textContent = topic.icon + ' ' + topic.title;
     $('#topic-description').textContent = topic.description;
 
-    var solved = topic.tasks.filter(function (t) { return Storage.isSolved(t.id); }).length;
+    var solved = topic.tasks.filter(function (t) { return Progress.isSolved(t.id); }).length;
     var pct = Math.round(solved / topic.tasks.length * 100);
     $('#topic-progress').innerHTML =
       '<div class="prog-bar wide"><div class="prog-fill" style="width:' + pct + '%"></div></div>' +
@@ -188,7 +202,7 @@ function renderTopic() {
       var dots = [1, 2, 3].map(function (n) {
         return '<span class="diff-dot" style="background:' + (n <= t.difficulty ? 'var(--accent)' : 'var(--border)') + '"></span>';
       }).join('');
-      var icon = st.indexOf('✅') >= 0 ? '✅' : st.indexOf('✨') >= 0 ? '✨' : st.indexOf('💡') >= 0 ? '💡' : '';
+      var icon = st.indexOf('✅') >= 0 ? '✅' : st.indexOf('✨') >= 0 ? '✨' : st.indexOf('📖') >= 0 ? '📖' : st.indexOf('💡') >= 0 ? '💡' : '';
       return '<div class="task-item" data-goto="#task-' + state.topicId + '/' + t.id + '">' +
         '<div class="task-num">' + (i + 1) + '</div>' +
         '<div class="task-item-title">' + esc(t.title) + '</div>' +
@@ -201,6 +215,7 @@ function renderTopic() {
   /* ---------- Гриф ---------- */
   function renderFretboard(container, selected) {
     var selKeys = (selected || []).map(function (c) { return c.string + ':' + c.fret; });
+    var showNotes = Progress.getShowNotes();
     var nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
     var head = '<div class="fret-head"><div class="fret-fret-label">Струна</div>' +
@@ -210,17 +225,20 @@ function renderTopic() {
     for (var s = 1; s <= 6; s++) {
       var cellsHtml = nums.map(function (f) {
         var key = s + ':' + f;
+        var on = selKeys.indexOf(key) >= 0;
         var mark = (f === 3 || f === 5 || f === 7 || f === 9) ? '•' : f === 12 ? '◎' : '';
-        return '<button class="fret-note' + (selKeys.indexOf(key) >= 0 ? ' selected' : '') + '" data-s="' + s + '" data-f="' + f + '">' +
-          fretName(s, f) + (mark ? '<span class="fret-marker">' + mark + '</span>' : '') + '</button>';
+        return '<button class="fret-note' + (on ? ' selected' : '') + '" data-s="' + s + '" data-f="' + f + '"' +
+          ' aria-pressed="' + on + '" aria-label="Струна ' + s + ', лад ' + f + (showNotes ? ', ' + fretName(s, f) : '') + '">' +
+          (showNotes ? fretName(s, f) : '') + (mark ? '<span class="fret-marker">' + mark + '</span>' : '') + '</button>';
       }).join('');
       rows.push('<div class="fret-head"><div class="fret-fret-label">' + STRING_NOTES[s - 1] + '</div>' + cellsHtml + '</div>');
     }
 
     container.innerHTML =
       '<div class="fret-wrap"><div class="fret-board">' + head + rows.join('') + '</div></div>' +
-      '<div class="play-area"><button class="btn-play" id="play-selection">🔊 Сыграть отмеченное</button></div>' +
-      '<div class="fretboard-hint">1-я струна (high e) сверху, 6-я (low E) снизу. Клик — отметить ноту.</div>';
+      '<div class="play-area"><button class="btn-play" id="play-selection">🔊 Сыграть отмеченное</button>' +
+      '<button class="btn ghost sm" id="toggle-notes">' + (showNotes ? '🙈 Скрыть ноты' : '🏷 Показать ноты') + '</button></div>' +
+      '<div class="fretboard-hint">1-я струна (high e) сверху, 6-я (low E) снизу. Клик — отметить ноту. Подписи нот лучше включать, только если застряли.</div>';
 
     container.onclick = function onClick(e) {
       var btn = e.target.closest('.fret-note');
@@ -233,8 +251,13 @@ function renderTopic() {
         }
         if (i >= 0) arr.splice(i, 1); else arr.push(cell);
         state.sel[state.taskId] = arr;
-        Storage.setAnswer(state.taskId, arr);
+        Progress.setAnswer(state.taskId, arr);
         renderFretboard(container, arr);
+        return;
+      }
+      if (e.target.closest('#toggle-notes')) {
+        Progress.setShowNotes(!Progress.getShowNotes());
+        renderFretboard(container, state.sel[state.taskId] || []);
         return;
       }
       var playBtn = e.target.closest('#play-selection');
@@ -248,14 +271,6 @@ function renderTopic() {
       }
     };
   }
-function debounce(fn, ms) {
-    var t = null;
-    return function () {
-      var self = this, args = arguments;
-      clearTimeout(t);
-      t = setTimeout(function () { fn.apply(self, args); }, ms);
-    };
-  }
 
   /* ---------- Форма ответа ---------- */
   function renderTaskAnswer(container, task) {
@@ -263,28 +278,33 @@ function debounce(fn, ms) {
     container.onclick = null;
 
     if (task.kind === 'text') {
-      var savedTxt = Storage.getAnswer(task.id);
+      var savedTxt = Progress.getAnswer(task.id);
       container.innerHTML =
         '<input type="text" id="answer-input" class="answer-input" placeholder="Ваш ответ..." autocomplete="off" autocapitalize="off" value="' + esc(typeof savedTxt === 'string' ? savedTxt : '') + '">' +
         '<div class="answer-input-hint">Напишите ответ и нажмите Enter или кнопку «✓ Проверить».</div>';
       var input = container.querySelector('#answer-input');
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') checkCurrent(); });
-      input.addEventListener('input', debounce(function () { Storage.setAnswer(task.id, input.value); }, 300));
+      input.addEventListener('input', function () { Progress.setAnswer(task.id, input.value); });
     } else if (task.kind === 'choice') {
-      var savedIdx = parseInt(Storage.getAnswer(task.id), 10);
-      container.innerHTML = '<div class="option-list">' + task.options.map(function (opt, i) {
-        return '<button class="option-btn' + (i === savedIdx ? ' selected' : '') + '" data-i="' + i + '" value="' + i + '">' + esc(opt) + '</button>';
+      var savedIdx = parseInt(Progress.getAnswer(task.id), 10);
+      var order = state.perm[task.id] || (state.perm[task.id] = shuffle(task.options.map(function (_, i) { return i; })));
+      container.innerHTML = '<div class="option-list">' + order.map(function (i) {
+        return '<button class="option-btn' + (i === savedIdx ? ' selected' : '') + '" data-i="' + i + '" aria-pressed="' + (i === savedIdx) + '">' + esc(task.options[i]) + '</button>';
       }).join('') + '</div>';
       container.onclick = function (e) {
         var b = e.target.closest('.option-btn');
         if (!b) return;
         var i = parseInt(b.getAttribute('data-i'), 10);
-        Storage.setAnswer(task.id, i);
+        Progress.setAnswer(task.id, i);
         var all = container.querySelectorAll('.option-btn');
-        for (var k = 0; k < all.length; k++) all[k].classList.toggle('selected', k === i);
+        for (var k = 0; k < all.length; k++) {
+          var on = parseInt(all[k].getAttribute('data-i'), 10) === i;
+          all[k].classList.toggle('selected', on);
+          all[k].setAttribute('aria-pressed', on);
+        }
       };
     } else if (task.kind === 'fretboard') {
-      var savedCells = Storage.getAnswer(task.id);
+      var savedCells = Progress.getAnswer(task.id);
       if (!Array.isArray(savedCells)) savedCells = [];
       state.sel[task.id] = savedCells;
       renderFretboard(container, savedCells);
@@ -299,7 +319,7 @@ function debounce(fn, ms) {
       return inp ? inp.value : '';
     }
     if (task.kind === 'choice') {
-      var idx = parseInt(Storage.getAnswer(task.id), 10);
+      var idx = parseInt(Progress.getAnswer(task.id), 10);
       return isNaN(idx) ? -1 : idx;
     }
     if (task.kind === 'fretboard') return state.sel[task.id] || [];
@@ -318,8 +338,8 @@ function debounce(fn, ms) {
     var res = Runner.check(task, answer);
     renderResult(task, res);
     if (res.pass) {
-      Storage.setSolved(task.id, true);
-      if ((state.hintsCount[task.id] || 0) > 0) Storage.setHinted(task.id, true);
+      Progress.setSolved(task.id, true);
+      if ((state.hintsCount[task.id] || 0) > 0) Progress.setHinted(task.id, true);
       updateTaskStatus();
       renderGlobalProgress();
     }
@@ -359,11 +379,12 @@ function debounce(fn, ms) {
     $('#task-status').textContent = statusLabel(task.id);
 
     $('#play-area').innerHTML = '';
+    var shift = task.randomRoot ? Math.floor(Math.random() * 12) - 5 : 0;
     if (task.play) {
       var btnPlay = document.createElement('button');
       btnPlay.className = 'btn-play';
       btnPlay.textContent = '🔊 Сыграть пример';
-      btnPlay.addEventListener('click', function () { tryPlay(task.play, $('#play-area')); });
+      btnPlay.addEventListener('click', function () { tryPlay(transposeSpec(task.play, shift), $('#play-area')); });
       $('#play-area').appendChild(btnPlay);
     }
 
@@ -383,7 +404,7 @@ function debounce(fn, ms) {
   function showNextHint(task) {
     if (!task || !task.hints || !task.hints.length) return;
     state.hintsCount[task.id] = (state.hintsCount[task.id] || 0) + 1;
-    Storage.setHinted(task.id, true);
+    Progress.setHinted(task.id, true);
     var shown = task.hints.slice(0, state.hintsCount[task.id]);
     $('#hints-block').innerHTML = shown.map(function (h) {
       return '<div class="hint">💡 ' + esc(h) + '</div>';
@@ -397,10 +418,9 @@ function debounce(fn, ms) {
 
   function showSolution(task) {
     if (!task) return;
-    Storage.setSolved(task.id, true);
-    Storage.setHinted(task.id, true);
+    Progress.setState(task.id, { revealed: true, hinted: true });
     $('#hints-block').innerHTML = '';
-    $('#results-summary').innerHTML = '<div class="summary-partial">Задача отмечена как «решена с подсказкой» ✨</div>';
+    $('#results-summary').innerHTML = '<div class="summary-partial">Решение показано 📖 — задача не засчитана. Ответьте сами, и она станет «решена с подсказкой» ✨</div>';
     $('#results-list').innerHTML =
       '<div class="solution-title">📖 Ответ и пояснение</div>' +
       '<div class="solution-code">' + esc(task.solution) + '</div>' +
@@ -412,14 +432,19 @@ function debounce(fn, ms) {
 
   /* ---------- Модалки ---------- */
   var modalCb = null;
+  var lastFocus = null;  /* куда вернуть фокус после закрытия окна */
   function openModal(title, body, cb) {
     $('#modal-title').textContent = title;
     $('#modal-body').innerHTML = body;
     modalCb = cb;
+    lastFocus = document.activeElement;
     $('#modal-backdrop').classList.remove('hidden');
+    $('#modal-ok').focus();
   }
   function closeModal(ok) {
+    if ($('#modal-backdrop').classList.contains('hidden')) return;
     $('#modal-backdrop').classList.add('hidden');
+    if (lastFocus) lastFocus.focus();
     if (ok && modalCb) { var cb = modalCb; modalCb = null; cb(); }
   }
 
@@ -436,9 +461,15 @@ function debounce(fn, ms) {
         (sec.code ? '<pre class="inline-code solution-code">' + esc(sec.code) + '</pre>' : '') +
         playHtml + '</div>';
     }).join('');
+    lastFocus = document.activeElement;
     $('#theory-backdrop').classList.remove('hidden');
+    $('#theory-close').focus();
   }
-  function closeTheory() { $('#theory-backdrop').classList.add('hidden'); }
+  function closeTheory() {
+    if ($('#theory-backdrop').classList.contains('hidden')) return;
+    $('#theory-backdrop').classList.add('hidden');
+    if (lastFocus) lastFocus.focus();
+  }
 
   /* ---------- Навигация ---------- */
   function resetOrder(topic) {
@@ -490,7 +521,7 @@ function debounce(fn, ms) {
     $('#btn-back-home').addEventListener('click', function () { location.hash = ''; });
     $('#btn-reset-progress').addEventListener('click', function () {
       openModal('Сбросить прогресс?', 'Все отметки «решено» и сохранённые ответы будут удалены. Это действие нельзя отменить.', function () {
-        Storage.resetAll();
+        Progress.resetAll();
         state.sel = {};
         renderHome();
       });
@@ -528,14 +559,14 @@ function debounce(fn, ms) {
     $('#btn-reset').addEventListener('click', function () {
       var task = currentTask();
       if (!task) return;
-      Storage.setAnswer(task.id, task.kind === 'choice' ? null : (task.kind === 'fretboard' ? [] : ''));
+      Progress.setAnswer(task.id, task.kind === 'choice' ? null : (task.kind === 'fretboard' ? [] : ''));
       state.sel[task.id] = [];
       $('#results-card').classList.add('hidden');
       renderTaskAnswer($('#answer-area'), task);
     });
     $('#btn-hint').addEventListener('click', function () { showNextHint(currentTask()); });
     $('#btn-solution').addEventListener('click', function () {
-      openModal('Показать решение?', 'Задача будет отмечена как «решена с подсказкой» ✨', function () {
+      openModal('Показать решение?', 'Задача не будет засчитана как решённая, пока вы не ответите сами.', function () {
         showSolution(currentTask());
       });
     });
@@ -567,7 +598,7 @@ function debounce(fn, ms) {
     $('#modal-backdrop').addEventListener('click', function (e) { if (e.target === $('#modal-backdrop')) closeModal(false); });
 
     document.addEventListener('keydown', function (e) {
-      if (e.ctrlKey && e.key === 'Enter') checkCurrent();
+      if (e.ctrlKey && e.key === 'Enter' && !$('#view-task').classList.contains('hidden')) checkCurrent();
       if (e.key === 'Escape') { closeModal(false); closeTheory(); }
     });
 
