@@ -122,5 +122,15 @@ TasksDB[TasksDB.length - 1].tasks.push(
       hints: ['Трезвучие мажорное, септима — малая'],
       play: { chord: ['C4', 'E4', 'G4', 'Bb4'] },
       solution: 'C E G Bb = доминантсептаккорд C7.'
+    },
+    { id: 'sv-gen', title: '🎲 Тренировка: ноты септаккордов', difficulty: 3, kind: 'text',
+      generate: function () { return chordNotesTask(['7', 'maj7', 'm7', 'm7b5']); }
+    },
+    { id: 'sv-16', title: 'F#m7b5', difficulty: 3, kind: 'text',
+      question: 'Какие ноты в аккорде F#m7b5?\n\nЗапишите через пробел от тоники.',
+      accept: ['f# a c e'],
+      hints: ['m7b5 = малая терция + уменьшенная квинта + малая септима', 'От F#: +3, +6, +10 полутонов'],
+      play: { chord: ['F#3', 'A3', 'C4', 'E4'] },
+      solution: 'F#m7b5 = F#, A, C, E — vii в G major.'
     }
 );

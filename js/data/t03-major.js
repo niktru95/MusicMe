@@ -134,5 +134,33 @@ TasksDB[TasksDB.length - 1].tasks.push(
       hints: ['Открытая 5-я = A; квинта вверх = E на 7-м ладу'],
       play: { note: 'E3' },
       solution: 'V ступень A major = E. На 5-й струне это 7-й лад — корень открытого аккорда E «на одной струне».'
+    },
+    { id: 'ma-gen', title: '🎲 Тренировка: ступени в тональностях', difficulty: 3, kind: 'text',
+      generate: function () {
+        var DEG = ['тоника', 'II ступень', 'медианта', 'субдоминанта', 'доминанта', 'VI ступень', 'вводный тон'];
+        var key = pick(['G', 'D', 'A', 'E', 'F', 'Bb', 'Eb', 'Ab']);
+        var scale = spellAll(key, [[0, 0], [1, 2], [2, 4], [3, 5], [4, 7], [5, 9], [6, 11]]);
+        var n = 1 + rnd(6);
+        return {
+          question: 'Какая нота — ' + (n + 1) + '-я ступень (' + DEG[n] + ') в ' + key + ' major?',
+          accept: [scale[n].toLowerCase()],
+          hints: ['Формула мажора: 2 2 1 2 2 2 1', 'Каждая буква ноты встречается в гамме ровно один раз'],
+          play: { scale: voiced(scale) },
+          solution: key + ' major: ' + scale.join(' ') + '. ' + (n + 1) + '-я ступень — ' + scale[n] + '.'
+        };
+      }
+    },
+    { id: 'ma-18', title: 'Бемоли A♭ major', difficulty: 3, kind: 'text',
+      question: 'Сколько бемолей в тональности Ab major?',
+      accept: ['4', 'четыре', '4 бемоля'],
+      hints: ['Порядок бемолей: Bb Eb Ab Db…', 'Предпоследний бемоль — тоника'],
+      solution: 'Ab major — 4 бемоля: Bb, Eb, Ab, Db. Предпоследний (Ab) — тоника.'
+    },
+    { id: 'ma-19', title: 'Субдоминанта E♭', difficulty: 3, kind: 'text',
+      question: 'Какая нота — 4-я ступень (субдоминанта) в Eb major?',
+      accept: ['ab', 'ля бемоль', 'g#'],
+      hints: ['Eb major: Eb F G … — 3 бемоля (Bb, Eb, Ab)'],
+      play: { scale: ['D#4', 'F4', 'G4', 'G#4'] },
+      solution: 'Eb F G Ab Bb C D — 4-я ступень Ab.'
     }
 );

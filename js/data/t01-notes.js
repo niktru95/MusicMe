@@ -118,5 +118,45 @@ TasksDB[TasksDB.length - 1].tasks.push(
       hints: ['12-й лад повторяет открытую струну октавой выше: открытая 1-я = E4'],
       play: { note: 'E5' },
       solution: 'Это E5 — тот же питч-класс, что открытая 1-я (E4), на октаву выше. На грифе: 12-й лад 1-й струны.'
+    },
+    { id: 'n-gen', title: '🎲 Тренировка: нота на грифе', difficulty: 2, kind: 'text',
+      generate: function () {
+        var s = 1 + rnd(6), f = rnd(13);
+        var m = fretMidi(s, f), pc = PITCH_SHARP[midiPitch(m)], fl = PITCH_FLAT[midiPitch(m)];
+        return {
+          question: 'Какая нота на ' + s + '-й струне, ' + f + '-й лад?',
+          accept: [pc.toLowerCase()],
+          hints: ['Открытая ' + s + '-я струна — ' + STRING_NOTES[s - 1].replace(/\d/, '') + ', каждый лад +1 полутон', 'Ориентиры: 5-й, 7-й и 12-й лады'],
+          play: { note: midiName(m) },
+          solution: s + '-я струна: открытая ' + STRING_NOTES[s - 1].replace(/\d/, '') + ' + ' + f + ' полутонов = ' + pc + (fl !== pc ? ' (' + fl + ')' : '') + ', это ' + midiName(m) + '.'
+        };
+      }
+    },
+    { id: 'n-gen2', title: '🎲 Тренировка: найдите ноту', difficulty: 2, kind: 'fretboard',
+      generate: function () {
+        var s = 1 + rnd(6), pc = rnd(12);
+        var name = PITCH_SHARP[pc] + (PITCH_FLAT[pc] !== PITCH_SHARP[pc] ? '/' + PITCH_FLAT[pc] : '');
+        var cells = fretCellsOfPitch(s, pc);
+        return {
+          question: 'Отметьте все ноты ' + name + ' на ' + s + '-й струне (лады 0–12).',
+          board: cells,
+          hints: ['Открытая ' + s + '-я струна — ' + STRING_NOTES[s - 1].replace(/\d/, ''), 'Если нота есть на ладу 0, то она же и на 12-м'],
+          solution: name + ' на ' + s + '-й струне: лады ' + cells.map(function (c) { return c.fret; }).join(', ') + '.'
+        };
+      }
+    },
+    { id: 'n-16', title: 'Все A в первой позиции', difficulty: 2, kind: 'fretboard', range: [0, 5],
+      question: 'Отметьте все ноты A на всех струнах в ладах 0–5.',
+      board: [{ string: 6, fret: 5 }, { string: 5, fret: 0 }, { string: 3, fret: 2 }, { string: 1, fret: 5 }],
+      hints: ['Проверьте каждую струну: от открытой ноты до 5-го лада', 'На 4-й и 2-й струнах A в ладах 0–5 нет'],
+      play: { notes: ['A2', 'A2', 'A3', 'A4'] },
+      solution: 'A: 6-я струна 5-й лад, открытая 5-я, 3-я струна 2-й лад, 1-я струна 5-й лад.'
+    },
+    { id: 'n-17', title: 'Октавная фигура', difficulty: 2, kind: 'fretboard',
+      question: 'Корень G — 6-я струна, 3-й лад. Отметьте его и ту же ноту на октаву выше на 4-й струне.\n\nФигура «через струну, +2 лада».',
+      board: [{ string: 6, fret: 3 }, { string: 4, fret: 5 }],
+      hints: ['С 6-й на 4-ю струну октава — через одну струну и на 2 лада выше'],
+      play: { interval: ['G2', 'G3'] },
+      solution: 'G2 (6-я, 3-й лад) и G3 (4-я, 5-й лад). Та же фигура работает для любого корня на 6-й и 5-й струнах.'
     }
 );

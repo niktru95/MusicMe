@@ -21,7 +21,7 @@ TasksDB.push({
       play: { chord: ['G3', 'B3', 'D4'] },
       solution: 'G–C–D. Открытые формы, которые уже играете.'
     },
-    { id: 'pr-02', title: 'I–IV–V в C', difficulty: 1, kind: 'text',
+    { id: 'pr-02', title: 'I–IV–V в C', difficulty: 1, kind: 'text', ordered: true,
       question: 'Запишите I, IV и V в C major через пробел (буквы аккордов).',
       accept: ['c f g', 'c f g major', 'до фа соль'],
       hints: ['C D E F G → 1, 4, 5'],
@@ -121,6 +121,13 @@ TasksDB.push({
       hints: ['3-й лад 6-й = G'],
       play: { note: 'G2' },
       solution: 'Бас G на 3-м ладу 6-й. В прогрессии G–C–D бас ходит G → C (3-й лад 5-й) → D (открытая 4-я или 5-й лад 5-й).'
+    },
+    { id: 'pr-16', title: 'Блюз в E', difficulty: 3, kind: 'text', ordered: true,
+      question: 'Блюз переносим из A в E. Какие аккорды будут I, IV и V? Запишите по порядку через пробел.',
+      accept: ['e a b', 'e7 a7 b7'],
+      hints: ['E major: E F# G# A B C# D#'],
+      play: { chords: [['E3', 'G#3', 'B3'], ['A3', 'C#4', 'E4'], ['B3', 'D#4', 'F#4']] },
+      solution: 'E – A – B (обычно E7 – A7 – B7). B7 в открытой позиции: x21202.'
     }
   ]
 });
