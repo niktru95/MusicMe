@@ -512,6 +512,23 @@ function renderTopic() {
   }
 
   /* ---------- Теория ---------- */
+  /* Схема грифа: { caption, frets: [от, до], muted: [струны], cells: [{ s, f, n: подпись, r: корень }] } */
+  function renderDiagram(d) {
+    var nums = [];
+    for (var f = d.frets[0]; f <= d.frets[1]; f++) nums.push(f);
+    var grid = ' style="grid-template-columns: 30px repeat(' + nums.length + ', minmax(24px, 1fr))"';
+    var rows = ['<div class="fret-head"' + grid + '><div></div>' + nums.map(function (f) { return '<div class="fret-label">' + f + '</div>'; }).join('') + '</div>'];
+    for (var s = 1; s <= 6; s++) {
+      var label = (d.muted || []).indexOf(s) >= 0 ? '×' : STRING_NOTES[s - 1].replace(/\d/, '');
+      rows.push('<div class="fret-head"' + grid + '><div class="fret-fret-label">' + label + '</div>' + nums.map(function (f) {
+        var c = (d.cells || []).filter(function (x) { return x.s === s && x.f === f; })[0];
+        return '<div class="fret-note' + (c ? ' selected' : '') + (c && c.r ? ' root-mark' : '') + '">' + (c ? esc(c.n || '●') : '') + '</div>';
+      }).join('') + '</div>');
+    }
+    return '<figure class="diagram"><div class="fret-wrap"><div class="fret-board diagram-board" style="max-width: ' + (30 + nums.length * 52) + 'px" role="img" aria-label="' + esc(d.caption) + '">' +
+      rows.join('') + '</div></div><figcaption>' + esc(d.caption) + '</figcaption></figure>';
+  }
+
   function openTheory(topicId) {
     var topic = getTopic(topicId);
     if (!topic) return;
@@ -522,6 +539,7 @@ function renderTopic() {
       return '<div class="theory-section"><h3 class="theory-h">' + (i + 1) + '. ' + esc(sec.h) + '</h3>' +
         fmtText(sec.text) +
         (sec.code ? '<pre class="inline-code solution-code">' + esc(sec.code) + '</pre>' : '') +
+        (sec.diagrams || []).map(renderDiagram).join('') +
         playHtml + '</div>';
     }).join('');
     lastFocus = document.activeElement;
