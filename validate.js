@@ -33,6 +33,18 @@ const ids = new Set();
 
 for (const t of db) {
   console.log('  -', t.id, '|', t.title, '| tasks:', t.tasks.length, '| theory:', Array.isArray(t.theory) ? t.theory.length : 0);
+  // теория: заголовок, текст, схемы грифа (подпись-нота должна совпадать с нотой клетки)
+  for (const sec of t.theory || []) {
+    if (!sec.h || !sec.text) { console.log('  BAD THEORY', t.id, sec.h); errs++; }
+    for (const d of sec.diagrams || []) {
+      if (!d.caption || !Array.isArray(d.frets) || !Array.isArray(d.cells)) { console.log('  BAD DIAGRAM', t.id, sec.h); errs++; continue; }
+      for (const c of d.cells) {
+        if (c.s < 1 || c.s > 6 || c.f < d.frets[0] || c.f > d.frets[1]) { console.log('  BAD DIAGRAM CELL', t.id, d.caption, JSON.stringify(c)); errs++; }
+        const m = /^([A-G])([#b]?)$/.exec(c.n || '');
+        if (m && vm.runInContext(`noteMidi('${c.n}4')`, dataCtx) % 12 !== fretMidi(c.s, c.f) % 12) { console.log('  WRONG NOTE', t.id, d.caption, JSON.stringify(c)); errs++; }
+      }
+    }
+  }
   for (const base of t.tasks) {
     total++;
     if (ids.has(base.id)) { console.log('  DUP ID', base.id); errs++; }
