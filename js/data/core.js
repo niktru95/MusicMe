@@ -5,7 +5,7 @@
    { id, title, difficulty: 1|2|3, kind: 'text'|'choice'|'fretboard',
      question: 'условие задачи',
      // для kind 'text':
-     accept: [ 'допустимые ответы', ... ],  // нормализуются: регистр, ♯/♭/#/b, пробелы/запятые
+     accept: [ 'допустимые ответы', ... ],  // нормализуются: регистр, ♯/♭/#/b, ё/е, пробелы/запятые/дефисы
      // для kind 'choice':
      options: [ 'вариант1', ... ], answer: <индекс верного>,
      // для kind 'fretboard': отметить клетки грифа
@@ -73,12 +73,8 @@ function normAnswer(s) {
     .toLowerCase()
     .replace(/♯|＃/g, '#')
     .replace(/♭/g, 'b')
-    .replace(/[,.]/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/[,.\-–—]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-/* Буквенное имя ноты нормализованно: "C#4", "c#4", "Соль" остаётся как есть */
-function normNoteInput(s) {
-  return normAnswer(s).replace(/-/g, '');
 }

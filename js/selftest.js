@@ -37,64 +37,11 @@
     check('fret-c5', fretName(5, 3) === 'C3');
     check('fret-g2', fretName(6, 3) === 'G2');
     check('fret-e5', fretName(1, 12) === 'E5');
-    check('freq-A4', Math.abs(Audio.freq('A4') - 440) < 1e-6);
+    check('freq-A4', Math.abs(Synth.freq('A4') - 440) < 1e-6);
 
-    check('data-topics', TasksDB.length >= 9);
-    var total = 0, badDiff = 0, emptyHints = 0, ids = {}, dup = {};
-    var kinds = { text: 0, choice: 0, fretboard: 0 };
-    var badQuestion = 0, noSolution = 0, badKind = 0, badAccept = 0, badChoices = 0, badCells = 0, noTheoryOrTasks = 0;
-    var badOctave = 0;
-
-    TasksDB.forEach(function (topic) {
-      if (!topic.id || !topic.title || !topic.icon) return;
-      if (!Array.isArray(topic.theory) || !topic.theory.length) noTheoryOrTasks++;
-      if (!Array.isArray(topic.tasks) || !topic.tasks.length) noTheoryOrTasks++;
-      total += topic.tasks.length;
-      topic.tasks.forEach(function (t) {
-        if (ids[t.id]) dup[t.id] = (dup[t.id] || 0) + 1; else ids[t.id] = 1;
-        if (!t.difficulty || t.difficulty < 1 || t.difficulty > 3) badDiff++;
-        if (!t.question) badQuestion++;
-        if (!Array.isArray(t.hints) || !t.hints.length) emptyHints++;
-        if (!t.solution) noSolution++;
-        if (['text', 'choice', 'fretboard'].indexOf(t.kind) < 0) badKind++;
-        if (t.kind === 'text' && (!Array.isArray(t.accept) || !t.accept.length)) badAccept++;
-        if (t.kind === 'choice') {
-          if (!Array.isArray(t.options) || t.options.length < 2) badChoices++;
-          if (typeof t.answer !== 'number' || t.answer < 0 || t.answer >= t.options.length) badChoices++;
-        }
-        if (t.kind === 'fretboard') {
-          if (!Array.isArray(t.board) || !t.board.length) badCells++;
-          (t.board || []).forEach(function (c) {
-            if (!c || c.string < 1 || c.string > 6 || c.fret < 0 || c.fret > 12) badCells++;
-          });
-        }
-        kinds[t.kind] = (kinds[t.kind] || 0) + 1;
-      });
-    });
-
-    var n04 = ids['n-04'] && TasksDB[0].tasks.filter(function (t) { return t.id === 'n-04'; })[0];
-    if (n04 && n04.accept && n04.accept.indexOf('g3') >= 0) badOctave++;
-    var n15 = null;
-    TasksDB.forEach(function (tp) {
-      tp.tasks.forEach(function (t) {
-        if (t.id === 'n-15') n15 = t;
-      });
-    });
-    if (n15 && n15.accept && n15.accept.indexOf('e4') >= 0) badOctave++;
-
-    check('data-total', total > 0);
-    check('data-dup-ids', Object.keys(dup).length === 0);
-    check('data-valid-difficulty', badDiff === 0);
-    check('data-theory-per-topic', noTheoryOrTasks === 0);
-    check('data-hints', emptyHints === 0);
-    check('data-solution', noSolution === 0);
-    check('data-question', badQuestion === 0);
-    check('data-kind-valid', badKind === 0);
-    check('data-accept', badAccept === 0);
-    check('data-options', badChoices === 0);
-    check('data-cells', badCells === 0);
-    check('data-kinds', ['text', 'choice', 'fretboard'].every(function (k) { return (kinds[k] || 0) > 0; }));
-    check('data-octave-accepts', badOctave === 0);
+    check('norm-yo-dash', normAnswer('Уменьшённый си-бемоль') === 'уменьшенный си бемоль');
+    check('data-loaded', TasksDB.length >= 9);
+    /* Структура и корректность данных — в validate.js (node, CI) */
 
     var tText = { id: 'st-t', kind: 'text', accept: ['квинта', '5'] };
     var r1 = Runner.check(tText, '  Квинта ');

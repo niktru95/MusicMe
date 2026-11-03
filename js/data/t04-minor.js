@@ -26,7 +26,7 @@ TasksDB.push({
       solution: '7 ступеней.'
     },
     { id: 'mn-03', title: 'Относительный мажор ля минора', difficulty: 2, kind: 'choice',
-      question: 'Какая мажорная тональность — относительная для A minor (та же набор нот)?',
+      question: 'Какая мажорная тональность — относительная для A minor (тот же набор нот)?',
       options: ['C major', 'G major', 'D major', 'F major'],
       answer: 0,
       hints: ['Стройте минор: A B C D E F G', 'Какой мажор содержит те же ноты?'],
